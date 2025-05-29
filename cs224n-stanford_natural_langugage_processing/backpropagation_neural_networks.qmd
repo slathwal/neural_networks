@@ -1,0 +1,13 @@
+---
+title: "Notes from Stanford lecture on deep learning for computer vision"
+date: 2025-05-27
+date-modified: last-modified
+format: html
+toc: true
+echo: true
+jupyter: cs224n
+author: Shefali Lathwal
+---
+
+The following notes are taken from a [lecture by Andrej Karpathy](https://www.youtube.com/watch?v=i94OvYb6noo) from the course Deep Learning for Computer Vision at Stanford.
+
