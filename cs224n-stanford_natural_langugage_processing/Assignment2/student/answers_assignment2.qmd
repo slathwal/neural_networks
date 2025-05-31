@@ -21,3 +21,34 @@ For $w \ne o$, $y_w = 0$, therefore, all the terms inside the summation become 0
 For $w = o$, $y_w = y_o = 1$,which is the only remaining term inside the summation.
 Since $P(O = o|C = c)$ is the conditional probability of the outide word being $o$, given a center word $c$, it is equivalent to $\hat{y}_o$. Therefore, the naive softmax loss is equal to the cross-entropy loss between $y$ and $\hat{y}_o$ 
 
+```{python}
+import re
+sentence = "I am a big person!!!"
+
+sentence_list = [re.sub(r'[\W]','',w) for w in sentence.split(" ")]
+#sentence_list.reverse()
+sentence_list
+
+stack = ["ROOT"]
+```
+
+Shift Transition
+```{python}
+stack.append(sentence_list.pop(0)), sentence_list, stack
+```
+
+Left Arc Transition
+
+```{python}
+second_word = stack.pop(-2)
+first_word = stack[-1]
+transition = (first_word, second_word)
+print(stack, transition, sentence_list)
+```
+
+# Check if a list is empty
+```{python}
+test_list = [1,2,3]
+while test_list:
+    print(test_list.pop(-1))
+```
