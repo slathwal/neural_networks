@@ -1,0 +1,128 @@
+---
+title: Visualize computational graphs using graphviz package
+author: Shefali Lathwal
+date: 2025-06-05
+date-modified: last-modified
+format: html
+toc: true
+echo: true
+jupyter: cs224n
+---
+Thank you to Andrej Karpathy and his code for how to draw a computational graph given in the video, [The spelled out intro to neural networks and backpropagation](https://www.youtube.com/watch?v=VMj-3S1tku0&list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ&index=1).
+
+# Visualize computational graphs using Graphviz
+
+Example of a simple graph
+```{python}
+from graphviz import Digraph
+from IPython.display import Markdown
+
+# Create a graph object
+graph = Digraph(name = "My first graph", comment = "some comment", graph_attr = {"rankdir": 'LR'})
+
+# Add nodes and edges to the graph
+graph.node("A", label = "node A")
+graph.node("B", label = "node B")
+graph.node("C", label = "node C")
+
+#graph.edges(["AB", "BC", "CA"])
+graph.edge("A", "B", label="AB")
+graph.edge("B", "C", label = "BC")
+graph.edge("A", "C", label= "AC")
+Markdown(graph.source)
+```
+
+```{python}
+graph
+```
+
+```{python}
+graph.body, graph.comment, graph.name, graph.filename
+```
+
+# Define a class that keeps track of operations and dependents of an object
+
+```{python}
+class Value():
+    """A class to store single values, operations, and what objects those operations were performed on."""
+
+    # We need to track which elements the current object depends on
+    def __init__(self, data, _children = (), _op = ""):
+        self.data = data
+        self._prev = set(_children)
+        self._op = _op
+        
+    def __repr__(self):
+        "Add a string representation of the class"
+        return f'Value(data: {self.data}, operator: {self._op})'
+
+    def __add__(self, other):
+        out = Value(self.data + other.data, _children = (self, other), _op = "+")
+        return out
+
+    def __mul__(self, other):
+        out = Value(self.data * other.data, _children = (self, other), _op = "*")
+        return out
+
+```
+
+
+
+# Build a computational graph to visualize nodes with mathematical operations
+
+```{python}
+# Collect all nodes and edges for the graph
+def trace(root):
+    nodes, edges = set(), set()
+    def build(v):
+        if v not in nodes:
+            nodes.add(v)
+            for child in v._prev:
+                edges.add((child, v)) # Add a tuple going from child to parent
+                build(child)
+
+    build(root)
+    return nodes, edges
+
+def draw_dot(root):
+    graph = Digraph(graph_attr={'rankdir': 'LR'})
+    nodes, edges = trace(root)
+
+    for n in nodes:
+        # get the unique id of a node
+        uid = str(id(n))
+        # add node with a square shape
+        graph.node(name = uid, label = f"data: {n.data:.4f}", shape = "record")
+        # If node has an operator:
+        if n._op:
+            # add the operator as a node
+            graph.node(name = uid+n._op, label = n._op)
+            # create an edge from operator node to this node's data
+            graph.edge(uid+n._op, uid)
+
+    for n1, n2 in edges:
+        # Connect n1 to operator node of n2"
+        graph.edge(str(id(n1)), str(id(n2))+n2._op)
+
+    return graph
+
+```
+
+# Perform some computations and visualize them
+```{python}
+a = Value(2.0)
+b = Value(3.0)
+c = a*b
+d = Value(-1.0)
+e = c + d
+f = c+c
+g = a + b + c
+```
+
+```{python}
+draw_dot(a)
+draw_dot(c)
+draw_dot(e)
+draw_dot(f) # If two same nodes contribute, they get drawn on top of each other because they have the same id.
+draw_dot(g)
+```
