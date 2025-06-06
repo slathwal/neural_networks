@@ -36,10 +36,11 @@ class Value():
     "A class to store single values and their gradients that can be used to build neural networks"
 
     # We need to track which elements the current object depends on
-    def __init__(self, data, _children = (), _op = ""):
+    def __init__(self, data, _children = (), _op = "", label =''):
         self.data = data
         self._prev = set(_children)
         self._op = _op
+        self.label = label
         
     def __repr__(self):
         "Add a string representation of the class"
@@ -62,16 +63,16 @@ Notes:
 - The above goes for names of methods in a class as well. If we want users to call a method explicitly, we give it a simple text name. However, if there are internal methods or methods that are called by other functions, we tend to prefix names with an underscore.
 
 ```{python}
-a = Value(2.0)
-b = Value(3.0)
-c = a*b
-d = Value(-1.0)
-e = c + d
+a = Value(2.0, label = "a")
+b = Value(3.0, label = "b")
+c = a*b; c.label = 'c'
+d = Value(-1.0, label = 'c')
+e = c + d; e.label = "e"
 
-f = c+c
+f = c+c; f.label = "f"
 f._prev
 
-g = a + b + c
+g = a + b + c; g.label="g"
 g._prev
 type(id(c))
 ```
@@ -102,7 +103,7 @@ def draw_dot(root):
 
     for n in nodes:
         uid = str(id(n))
-        graph.node(name = uid, label = f"data: {n.data:.4f}", shape = "record")
+        graph.node(name = uid, label = '{%s | data: %.4f}' %(n.label, n.data), shape = "record")
         # If n has an operator:
         if n._op:
             graph.node(name = uid+n._op, label = n._op)
@@ -116,6 +117,8 @@ def draw_dot(root):
     return graph
 
 ```
+
+Note: If by default
 
 ```{python}
 trace(f)

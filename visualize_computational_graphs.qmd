@@ -44,13 +44,14 @@ graph.body, graph.comment, graph.name, graph.filename
 
 ```{python}
 class Value():
-    """A class to store single values, operations, and what objects those operations were performed on."""
+    "A class to store single values and their gradients that can be used to build neural networks"
 
     # We need to track which elements the current object depends on
-    def __init__(self, data, _children = (), _op = ""):
+    def __init__(self, data, _children = (), _op = "", label =''):
         self.data = data
         self._prev = set(_children)
         self._op = _op
+        self.label = label
         
     def __repr__(self):
         "Add a string representation of the class"
@@ -71,58 +72,76 @@ class Value():
 # Build a computational graph to visualize nodes with mathematical operations
 
 ```{python}
-# Collect all nodes and edges for the graph
+from graphviz import Digraph
 def trace(root):
     nodes, edges = set(), set()
     def build(v):
+        #print("\ncalling build for:", v)
         if v not in nodes:
+            #print("add node for:", v)
             nodes.add(v)
+            #print("children:", v._prev)
             for child in v._prev:
+                #print("add child:",child)
                 edges.add((child, v)) # Add a tuple going from child to parent
                 build(child)
 
     build(root)
     return nodes, edges
-
-def draw_dot(root):
+#trace(f)
+def draw_dot(root, label_placement = "v"):
     graph = Digraph(graph_attr={'rankdir': 'LR'})
     nodes, edges = trace(root)
 
     for n in nodes:
-        # get the unique id of a node
         uid = str(id(n))
-        # add node with a square shape
-        graph.node(name = uid, label = f"data: {n.data:.4f}", shape = "record")
-        # If node has an operator:
+        if label_placement == "v":
+            label_string = '{%s | data: %.4f}' %(n.label, n.data) # vertical separators between label values
+            print(label_string)
+        else:
+            label_string = f"{n.label} | data: {n.data:.4f}" # Horizontal separator between label values in the node.
+        graph.node(name = uid, label = label_string, shape = "record")
+
+        # If n has an operator:
         if n._op:
-            # add the operator as a node
             graph.node(name = uid+n._op, label = n._op)
-            # create an edge from operator node to this node's data
+            # ccreate an edge from operator node to this node's data
             graph.edge(uid+n._op, uid)
 
     for n1, n2 in edges:
-        # Connect n1 to operator node of n2"
+        "Connect n1 to op node of n2"
         graph.edge(str(id(n1)), str(id(n2))+n2._op)
 
     return graph
-
 ```
 
 # Perform some computations and visualize them
 ```{python}
-a = Value(2.0)
-b = Value(3.0)
-c = a*b
-d = Value(-1.0)
-e = c + d
-f = c+c
-g = a + b + c
+a = Value(2.0, label = "a")
+b = Value(3.0, label = "b")
+c = a*b; c.label = "c"
+d = Value(-1.0, label = "d")
+e = c + d; e.label = "e"
+f = c+c; f.label = "f"
+g = a + b + c; g.label = "g"
 ```
 
 ```{python}
 draw_dot(a)
+```
+
+```{python}
 draw_dot(c)
+```
+
+```{python}
 draw_dot(e)
+```
+
+```{python}
 draw_dot(f) # If two same nodes contribute, they get drawn on top of each other because they have the same id.
+```
+
+```{python}
 draw_dot(g)
 ```
