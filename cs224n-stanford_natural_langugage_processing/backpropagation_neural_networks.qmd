@@ -1,5 +1,5 @@
 ---
-title: "Notes from Stanford lecture on deep learning for computer vision"
+title: "Neural networks and back-propagation"
 date: 2025-05-27
 date-modified: last-modified
 format: html
@@ -9,5 +9,117 @@ jupyter: cs224n
 author: Shefali Lathwal
 ---
 
-The following notes are taken from a [lecture by Andrej Karpathy](https://www.youtube.com/watch?v=i94OvYb6noo) from the course Deep Learning for Computer Vision at Stanford.
+Following the ideas taken from a [lecture by Andrej Karpathy](https://www.youtube.com/watch?v=i94OvYb6noo) from the course Deep Learning for Computer Vision at Stanford, and Anrej Karpathy's course on [Neural Networks: Zero to Hero](https://www.youtube.com/playlist?list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ) on Youtube.
 
+- It is important to understand backpropagation rules, because many algorithms require you to write your own gradient functions.
+
+A good rule of thumb is to write the gradient function, and then check that it is correct using numerical gradients.
+
+In the first video of the course, Karpathy talks about micrograd, an engine he built from scratch that takes single scalar inputs and produce outputs using a neural network.
+
+One of Karpathy's emphasis is the following by Richard Feynman:
+
+::: {.callout-tip}
+What I cannot create, I do not understand.
+
+Know how to solve every problem that has been solved.
+:::
+
+I have known the above intuitively, but seeing it spelled out is extremely useful and lays out clearly why understanding the theory behind things has always been important to me. The piece that I missed in recent years is the ability to create things yourself. Learning and learning enough to create yourself are two very different things and the latter is where learning truly happens, that gives mastery over a subject, and that gives joy.
+
+In this notebook, I am creating the code from Karpathy's first lecture in Zero to Hero series on my own, using classes to build and train a simple neuron and then a multi-layer percepteron. I will also use pytorch to compare my implementation with the pytorch implementation.
+
+# Define a class that keeps track of data, gradients and operations
+
+```{python}
+class Value():
+    "A class to store single values and their gradients that can be used to build neural networks"
+
+    # We need to track which elements the current object depends on
+    def __init__(self, data, _children = (), _op = ""):
+        self.data = data
+        self._prev = set(_children)
+        self._op = _op
+        
+    def __repr__(self):
+        "Add a string representation of the class"
+        return f'Value(data: {self.data}, operator: {self._op})'
+
+    def __add__(self, other):
+        out = Value(self.data + other.data, _children = (self, other), _op = "+")
+        return out
+
+    def __mul__(self, other):
+        out = Value(self.data * other.data, _children = (self, other), _op = "*")
+        return out
+
+```
+
+Notes:
+- `__repr__` is a function in a class that provides a nice string representation of the objects created from that class.
+- The arguments in init and the names of variables and data structures used to store those arguments can be different. For example, in the class `Value`, we use an argument called `_children`, which is a tuple, and save a variable called `_prev` as a `set(_children)`
+- We give simple text names to arguments that we provide while creating an object or calling a method on an object from a class definition. However, if there are arguments that are created during function calls or other internal operations using objects of a class, we tend to prefix those names with an underscore. For example, see `_op`, `_children`. 
+- The above goes for names of methods in a class as well. If we want users to call a method explicitly, we give it a simple text name. However, if there are internal methods or methods that are called by other functions, we tend to prefix names with an underscore.
+
+```{python}
+a = Value(2.0)
+b = Value(3.0)
+c = a*b
+d = Value(-1.0)
+e = c + d
+
+f = c+c
+f._prev
+
+g = a + b + c
+g._prev
+type(id(c))
+```
+
+# Visualize computational graphs using graphviz
+
+```{python}
+from graphviz import Digraph
+def trace(root):
+    nodes, edges = set(), set()
+    def build(v):
+        #print("\ncalling build for:", v)
+        if v not in nodes:
+            #print("add node for:", v)
+            nodes.add(v)
+            #print("children:", v._prev)
+            for child in v._prev:
+                #print("add child:",child)
+                edges.add((child, v)) # Add a tuple going from child to parent
+                build(child)
+
+    build(root)
+    return nodes, edges
+#trace(f)
+def draw_dot(root):
+    graph = Digraph(graph_attr={'rankdir': 'LR'})
+    nodes, edges = trace(root)
+
+    for n in nodes:
+        uid = str(id(n))
+        graph.node(name = uid, label = f"data: {n.data:.4f}", shape = "record")
+        # If n has an operator:
+        if n._op:
+            graph.node(name = uid+n._op, label = n._op)
+            # ccreate an edge from operator node to this node's data
+            graph.edge(uid+n._op, uid)
+
+    for n1, n2 in edges:
+        "Connect n1 to op node of n2"
+        graph.edge(str(id(n1)), str(id(n2))+n2._op)
+
+    return graph
+
+```
+
+```{python}
+trace(f)
+draw_dot(f)
+draw_dot(g)
+draw_dot(e)
+```
