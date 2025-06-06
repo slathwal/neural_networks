@@ -145,3 +145,7 @@ draw_dot(f) # If two same nodes contribute, they get drawn on top of each other 
 ```{python}
 draw_dot(g)
 ```
+
+```{python}
+draw_dot(g, label_placement="h")
+```
