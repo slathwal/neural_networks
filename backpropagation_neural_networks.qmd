@@ -29,9 +29,16 @@ I have known the above intuitively, but seeing it spelled out is extremely usefu
 
 In this notebook, I am creating the code from Karpathy's first lecture in Zero to Hero series on my own, using classes to build and train a simple neuron and then a multi-layer percepteron. I will also use pytorch to compare my implementation with the pytorch implementation.
 
+::: {.callout-note}
+Important things to remember:
+- Do not overwrite the gradients of an object. Instead add to the existing gradients so that we can handle the case of two same objects in an operation.
+- Because we are adding the gradients instead of overwriting them, remember to zero the gradients before each back propagation step.
+:::
+
 # Define a class that keeps track of data, gradients and operations
 
 ```{python}
+import numpy as np
 class Value():
     "A class to store single values and their gradients that can be used to build neural networks"
 
@@ -42,7 +49,7 @@ class Value():
         self._op = _op
         self.label = label
         self.grad = 0.0 # default gradient is zero, i.e., node has no effect on output
-        self._backward = lambda: None # by default it will be a lambda function
+        self._backward = lambda: None # by default it will be an empty function
         
     def __repr__(self):
         "Add a string representation of the class"
@@ -67,11 +74,38 @@ class Value():
         out._backward = calculate_back_gradient
         return out
 
+    def tanh(self):
+        out = Value(np.tanh(self.data), _children = (self,), _op = "tanh") # In the video Karpathy used exponentials, and I am using the function directly from numpy. 
+        def calculate_back_gradient():
+            self.grad += (1 - out.data**2)* out.grad
+        out._backward = calculate_back_gradient
+        return out
 
+    def backward(self):
+        topo = []
+        visited = set()
+        def build_topo(node):
+            if node not in visited:
+                visited.add(node)
+                for child in node._prev:
+                    build_topo(child)
+                topo.append(node)
+        build_topo(self)
 
-    
-        
+        self.grad = 1.0
+        for node in reversed(topo):
+            node._backward()
 
+```
+
+```{python}
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+x = np.arange(-10, 11, 0.2) 
+y = np.tanh(x) # math.tanh function only takes a single number and not an array.
+plt.plot(x, y)
+plt.grid()
 ```
 
 Notes:
@@ -176,4 +210,44 @@ e._backward()
 c._backward()
 d._backward()
 print(a.grad, b.grad, c.grad, d.grad, e.grad, f.grad)
+```
 
+# Define one neuron
+
+```{python}
+# inputs
+x1 = Value(2.0, label = 'x1')
+x2 = Value(0.0, label = "x2")
+
+# weights
+w1 = Value(-3.0, label = 'w1')
+w2 = Value(1.0, label = 'w2')
+
+# bias term
+b = Value(6.88137, label = 'b')
+
+#x1w1 + x2w2 +b
+x1w1 = x1*w1; x1w1.label = 'x1w1'
+x2w2 = x2*w2; x2w2.label = 'x2w2'
+x1w1x2w2 = x1w1+x2w2; x1w1x2w2.label = 'x1w1x2w2'
+n = x1w1x2w2 + b; n.label = 'n'
+o = n.tanh(); o.label = 'o'
+
+```
+
+```{python}
+draw_dot(o)
+```
+
+# Peform backpropagation on the neuron
+In a neural netowrk, we are interested in gradients with respect to weights and bias so that we can backpropagate
+
+We never want to call `._backward` function on any note before we have done everythong after it. So we need to order the nodes to know which ones are before and which ones are after. This ordering can be done using topological sort, which is a laying out of nodes so that all edges go in one direction, e.g. from left to right. We have added this function to the Value class
+
+```{python}
+o.backward()
+```
+
+```{python}
+draw_dot(o)
+```
