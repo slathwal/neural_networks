@@ -41,6 +41,8 @@ class Value():
         self._prev = set(_children)
         self._op = _op
         self.label = label
+        self.grad = 0.0 # default gradient is zero, i.e., node has no effect on output
+        self._backward = lambda: None # by default it will be a lambda function
         
     def __repr__(self):
         "Add a string representation of the class"
@@ -48,11 +50,27 @@ class Value():
 
     def __add__(self, other):
         out = Value(self.data + other.data, _children = (self, other), _op = "+")
+        
+        def calculate_back_gradient():
+            # If we call the grads outside this function, gradients will be zero, because by default out.grad is zero
+            self.grad += 1.00*out.grad
+            other.grad += 1.00*out.grad
+        
+        out._backward = calculate_back_gradient # function that propagates the gradient
         return out
 
     def __mul__(self, other):
         out = Value(self.data * other.data, _children = (self, other), _op = "*")
+        def calculate_back_gradient():
+            self.grad += other.data * out.grad
+            other.grad += self.data * out.grad
+        out._backward = calculate_back_gradient
         return out
+
+
+
+    
+        
 
 ```
 
@@ -75,6 +93,7 @@ f._prev
 g = a + b + c; g.label="g"
 g._prev
 type(id(c))
+f.grad
 ```
 
 # Visualize computational graphs using graphviz
@@ -103,7 +122,7 @@ def draw_dot(root):
 
     for n in nodes:
         uid = str(id(n))
-        graph.node(name = uid, label = '{%s | data: %.4f}' %(n.label, n.data), shape = "record")
+        graph.node(name = uid, label = '{%s | {data: %.4f | grad:%0.4f}} ' %(n.label, n.data, n.grad), shape = "record")
         # If n has an operator:
         if n._op:
             graph.node(name = uid+n._op, label = n._op)
@@ -118,11 +137,43 @@ def draw_dot(root):
 
 ```
 
-Note: If by default
+Note: If by the `rankdir` is `LR` for a node of type `record`, then the label placement by default is horizontal if labels are separated by a vertical bar. However, if the label string is enclosed in curly brackets, the placement is vertical when labels are separated by a vertical bar.
 
 ```{python}
 trace(f)
-draw_dot(f)
-draw_dot(g)
-draw_dot(e)
+display(draw_dot(f))
+
+display(draw_dot(e))
+display(draw_dot(g))
 ```
+
+- We can visualize computational graphs built using the objects from class `Value`. Now it's time to create local gradients and figure out how to do back_propagation.
+
+# Calculate gradients and perform back-propagation for a simple computation
+```{python}
+a = Value(2.0, label = "a")
+b = Value(3.0, label = "b")
+c = a*b; c.label = "c"
+d = Value(-1.0, label = "d")
+e = c + d; e.label = "e"
+f = Value(-2.0, label = "f")
+L = e*f; L.label = "L"
+#display(draw_dot(L)) # visualize the forward pass of the computation
+L
+```
+
+```{python}
+display(draw_dot(L))
+```
+
+If you keep running the backward function again without zeroing the grads, the gradients will just keep adding
+
+```{python}
+L.grad = 1
+
+L._backward()
+e._backward()
+c._backward()
+d._backward()
+print(a.grad, b.grad, c.grad, d.grad, e.grad, f.grad)
+
