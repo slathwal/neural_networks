@@ -31,7 +31,9 @@ In this notebook, I am creating the code from Karpathy's first lecture in Zero t
 
 ::: {.callout-note}
 Important things to remember:
+
 - Do not overwrite the gradients of an object. Instead add to the existing gradients so that we can handle the case of two same objects in an operation.
+
 - Because we are adding the gradients instead of overwriting them, remember to zero the gradients before each back propagation step.
 :::
 
@@ -56,6 +58,7 @@ class Value():
         return f'Value(data: {self.data}, operator: {self._op})'
 
     def __add__(self, other):
+        other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data + other.data, _children = (self, other), _op = "+")
         
         def calculate_back_gradient():
@@ -65,8 +68,19 @@ class Value():
         
         out._backward = calculate_back_gradient # function that propagates the gradient
         return out
+    def __radd__(self, other):
+        return self + other
+
+    def __neg__(self): # -self
+        # We do not need to define a gradient here because we are implementing negation as a multiplication and we already have a gradient for multiplication
+        return self * -1
+
+    def __sub__(self, other): # self - other
+        # We do not need to define a gradient here becaue we are implementing subtraction as an addition and we have already defined a gradient for addition
+        return self + (-other)
 
     def __mul__(self, other):
+        other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data * other.data, _children = (self, other), _op = "*")
         def calculate_back_gradient():
             self.grad += other.data * out.grad
@@ -74,11 +88,36 @@ class Value():
         out._backward = calculate_back_gradient
         return out
 
+    def __rmul__(self, other):
+        return self*other
+
+    def __pow__(self, other):
+        # Here other is not a value, only an int or a float
+        assert isinstance(other, (int, float)), "only supporting int/float powers"
+        out = Value(self.data**other, (self,), f'**{other}')
+
+        def calculate_back_gradient():
+            self.grad = (other* (self.data)**(other -1)) * out.grad
+        out._backward = calculate_back_gradient
+
+        return out
+
+    def __truediv__(self, other): # self/other
+        return self * other**-1  
+
     def tanh(self):
         out = Value(np.tanh(self.data), _children = (self,), _op = "tanh") # In the video Karpathy used exponentials, and I am using the function directly from numpy. 
         def calculate_back_gradient():
             self.grad += (1 - out.data**2)* out.grad
         out._backward = calculate_back_gradient
+        return out
+
+    def exp(self):
+        out = Value(np.exp(self.data), (self,), "exp")
+        def calculate_back_gradient():
+            self.grad = out.data * out.grad
+        out._backward = calculate_back_gradient
+
         return out
 
     def backward(self):
@@ -95,40 +134,17 @@ class Value():
         self.grad = 1.0
         for node in reversed(topo):
             node._backward()
-
-```
-
-```{python}
-import numpy as np
-import math
-import matplotlib.pyplot as plt
-x = np.arange(-10, 11, 0.2) 
-y = np.tanh(x) # math.tanh function only takes a single number and not an array.
-plt.plot(x, y)
-plt.grid()
 ```
 
 Notes:
+
 - `__repr__` is a function in a class that provides a nice string representation of the objects created from that class.
+
 - The arguments in init and the names of variables and data structures used to store those arguments can be different. For example, in the class `Value`, we use an argument called `_children`, which is a tuple, and save a variable called `_prev` as a `set(_children)`
+
 - We give simple text names to arguments that we provide while creating an object or calling a method on an object from a class definition. However, if there are arguments that are created during function calls or other internal operations using objects of a class, we tend to prefix those names with an underscore. For example, see `_op`, `_children`. 
+
 - The above goes for names of methods in a class as well. If we want users to call a method explicitly, we give it a simple text name. However, if there are internal methods or methods that are called by other functions, we tend to prefix names with an underscore.
-
-```{python}
-a = Value(2.0, label = "a")
-b = Value(3.0, label = "b")
-c = a*b; c.label = 'c'
-d = Value(-1.0, label = 'c')
-e = c + d; e.label = "e"
-
-f = c+c; f.label = "f"
-f._prev
-
-g = a + b + c; g.label="g"
-g._prev
-type(id(c))
-f.grad
-```
 
 # Visualize computational graphs using graphviz
 
@@ -173,14 +189,6 @@ def draw_dot(root):
 
 Note: If by the `rankdir` is `LR` for a node of type `record`, then the label placement by default is horizontal if labels are separated by a vertical bar. However, if the label string is enclosed in curly brackets, the placement is vertical when labels are separated by a vertical bar.
 
-```{python}
-trace(f)
-display(draw_dot(f))
-
-display(draw_dot(e))
-display(draw_dot(g))
-```
-
 - We can visualize computational graphs built using the objects from class `Value`. Now it's time to create local gradients and figure out how to do back_propagation.
 
 # Calculate gradients and perform back-propagation for a simple computation
@@ -210,6 +218,10 @@ e._backward()
 c._backward()
 d._backward()
 print(a.grad, b.grad, c.grad, d.grad, e.grad, f.grad)
+```
+
+```{python}
+draw_dot(L)
 ```
 
 # Define one neuron
@@ -242,7 +254,7 @@ draw_dot(o)
 # Peform backpropagation on the neuron
 In a neural netowrk, we are interested in gradients with respect to weights and bias so that we can backpropagate
 
-We never want to call `._backward` function on any note before we have done everythong after it. So we need to order the nodes to know which ones are before and which ones are after. This ordering can be done using topological sort, which is a laying out of nodes so that all edges go in one direction, e.g. from left to right. We have added this function to the Value class
+We never want to call `._backward` function on any node before we have done everythong after it. So we need to order the nodes to know which ones are before and which ones are after. This ordering can be done using topological sort, which is a laying out of nodes so that all edges go in one direction, e.g. from left to right. Now, instead of calling `_backward()` on every node, we have added this function to the Value class.
 
 ```{python}
 o.backward()
@@ -250,4 +262,70 @@ o.backward()
 
 ```{python}
 draw_dot(o)
+```
+
+
+# Same neuron as above, but use exponentials to define the tanh activation function
+
+```{python}
+# inputs
+x1 = Value(2.0, label = 'x1')
+x2 = Value(0.0, label = "x2")
+
+# weights
+w1 = Value(-3.0, label = 'w1')
+w2 = Value(1.0, label = 'w2')
+
+# bias term
+b = Value(6.88137, label = 'b')
+
+#x1w1 + x2w2 +b
+x1w1 = x1*w1; x1w1.label = 'x1w1'
+x2w2 = x2*w2; x2w2.label = 'x2w2'
+x1w1x2w2 = x1w1+x2w2; x1w1x2w2.label = 'x1w1x2w2'
+
+n = x1w1x2w2 + b; n.label = 'n'
+
+e = n.exp()
+f = (-n).exp()
+o =  (e-f)/(e+f) # It is important to define variables  for operations that are happening multiplt times, otherwise we get the wrong gradients.
+o.label = 'o'
+o.backward()
+draw_dot(o)
+```
+
+# Perform the above computations using pytorch
+Pytorch takes tensors as input which are multi-dimensional objects
+- By default, pytorch assumes that leaf nodes do not require gradients, because leaf nodes are generally training data.
+- In this special case, we are defining weights also as leaf nodes, so we have to explicitly set the parameter `requires_grad` to `True`.
+
+```{python}
+import torch
+
+x1 = torch.Tensor([2.0]).double() # By default pytorch uses single precision float with dtype float32. We can cast it to double precision float of dtype float64 using the function double()
+x1.requires_grad = True
+x2 = torch.Tensor([0.0]).double(); x2.requires_grad = True
+
+# weights
+w1 = torch.Tensor([-3.0]).double(); w1.requires_grad = True
+w2 = torch.Tensor([1.0]).double(); w2.requires_grad = True
+
+# bias term
+b = torch.Tensor([6.88137]).double(); b.requires_grad = True
+
+# n
+n = x1*w1 + x2*w2 + b # n is a tensor with data attribute and grad attribute
+
+# output
+o = torch.tanh(n) # o is a tensor with data attribute and grad attribute
+
+print(o.data.item()) # print the forward pass
+o.backward()
+
+print('_________')
+print('x2', x2.grad.item())
+print('x1', x1.grad.item())
+print('w1', w1.grad.item())
+print('w2', w2.grad.item())
+print('b', b.grad.item())
 ```
