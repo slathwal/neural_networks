@@ -1,0 +1,32 @@
+---
+title: "Learning to build NLP models using deep-learning"
+author: "Shefali Lathwal"
+date: 2025-06-07
+date-modified: last-modified
+format: html
+echo: true
+toc: true
+jupyter: cs224n
+---
+
+Following along lectures from CS224n and Andrei Karpathy's Neural Networks: zero-to-hero series.
+
+- Start with a character level language model
+
+- Given a few characters, predict the next character in the sequence.
+
+- We will start with character-level models and eventually go to word-level models.
+
+- Start with bigram models that just predict a character given a single character
+    - We should pay attention to characters that start and end words as well.
+
+- Also think about torch summing operations
+
+- Also think about sampling from multinomial distributions in torch
+
+- Think about broadcasting rules/broadcasting semantics in torch
+    - Look at tutorials for broadcasting and practice it
+
+Step 1: Train a bigram character level model based on frequencies of character occurences in a training dataset.
+
+Step 2: Train a neural network to predict the next character based on a training dataset.
