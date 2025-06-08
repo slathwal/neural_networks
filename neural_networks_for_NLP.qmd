@@ -161,6 +161,35 @@ fig.tight_layout()
 
 # Make predictions based on calculated probabilities
 We will make predictions by sampling from the calculated probabilities using `torch.multinomial`
+
+Let's test out the random number generator first to get a feel of the function
+
 ```{python}
-#TO DO
+g = torch.Generator().manual_seed(347291378491) # fix the seed
+seq = torch.rand(3, generator = g) # generate three random numbers from uniform distribution between 0 and 1
+# Normalize the numbers to get a probability distribution
+seq = seq/sum(seq)
+print(seq)
+
+torch.multinomial(seq, 10, replacement=True, generator=g) # We should get index=0, i.e., the first number 50% of the times, and numbers at index 1 and 2 approximately 25% and 21% of the time, respectively.
+```
+
+```{python}
+gen = torch.Generator().manual_seed(347291378491)
+
+for _ in range(20):
+    char_list= ["."]
+    ind = stoi["."]
+    while True:
+        p = Np[ind]
+        # If all characters were equally likely
+        #p = torch.ones(27)/27.0
+        ind = torch.multinomial(input = p, num_samples = 1, replacement = True, generator=gen).item()
+        #print(ind)
+        #print(sample_ind)
+        sample_char = itos[ind]
+        char_list.append(sample_char)
+        if ind == stoi["."]:
+            break
+    print(''.join(char_list))
 ```
