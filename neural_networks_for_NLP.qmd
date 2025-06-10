@@ -475,9 +475,12 @@ for _ in range(20):
     char_list= ["."]
     ind = stoi["."]
     while True:
-        p = probs[ind]
-        # If all characters were equally likely
-        #p = torch.ones(27)/27.0
+        xenc = F.one_hot(torch.tensor([ind]), num_classes=27).float() # Only feed one example to the neural net
+        #print(xenc)
+        logits = xenc @ W
+        counts = logits.exp()
+        p = counts/counts.sum(dim=1, keepdims = True)
+
         ind = torch.multinomial(input = p, num_samples = 1, replacement = True, generator=gen).item()
         #print(ind)
         #print(sample_ind)
