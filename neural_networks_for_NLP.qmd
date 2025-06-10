@@ -231,7 +231,7 @@ using the above method, we can calculate the loss function for any given word.
 ```{python}
 log_likelihood = 0.0
 n = 0
-words_list = ["shefali"]
+words_list = ["aadhvita"]
 for word in words_list:
     chs = '.'+word+'.'
     for ch1, ch2 in zip(chs, chs[1:]):
@@ -298,7 +298,7 @@ xenc, xenc.shape, plt.imshow(xenc),(xenc.dtype)
 When we plug in values into a neural network, we want them to be floating points and not integers, but right now, the datatype ox `xenc` is `int64`. So we will need to convert it to float.
 ```{python}
 xenc = xenc.float()
-xenc.dtype
+xenc.dtype, xenc.shape
 ```
 
 # Define weights for each of the training examples
@@ -340,7 +340,9 @@ Now these output numbers can be thought of as log of counts. therefore, to get t
 
 The exponential turns all numbers into a positive number. We can now normalize all 27 outputs for each example to get probabilities.
 The transformation above is also called `softmax` transformation.
+Softmax is kind of a normalization function that converts numbers into probabilities.
 
+The code below represents one forward pass of the neural network.
 ```{python}
 logits = (xenc @ W) # log-counts 
 counts = logits.exp()
@@ -348,5 +350,140 @@ probs = counts / (counts.sum(dim = 1, keepdim=True))
 probs, probs[0].sum()
 ```
 
+Each column of each row of the tensor probs now represents the probability of the next character for the example represented by that row.
+
+For example, row 0 of probs represents the probability of each of the 27 characters following the character "."
+
+```{python}
+probs[0]
+```
+
+Now we will tune the weights W so that the probabilities coming out is good, i.e., the loss function is low.
+
+# Test the loop for gradient descent using a few bigram examples
+
+```{python}
+
+# initialize all the inputs and parameters
+g = torch.Generator().manual_seed(12343354351)
+xenc = F.one_hot(xs, num_classes = 27).float()
+W = torch.randn(size = (27,27), requires_grad=True, generator = g) # If I do not have generator in the same cell, then at each run, the generator is not re-initialized. For reproducible results, it's important to have the generator object in the same cell so that it is re-initialized at each run of the cell.
+
+for _ in range(50):
+    # do a forward pass and calculate the loss
+    logits = xenc @ W
+    counts = logits.exp()
+    probs = counts / counts.sum(dim = 1, keepdim=True)
+
+    # Calculate the neg log likelihodd for the known next character in the training data
+    # For first example
+    nll = []
+    for ix, example in enumerate(xs):
+        #print(itos[example.item()], itos[ys[ix].item()], sep = "")
+        #print(ys[ix])
+        prob_true_char = probs[ix, ys[ix]]
+        log_prob = prob_true_char.log()
+        nll.append(-log_prob) # Do not use .item() here because pytorch needs to be able to track operations so that it can calculate gradients in the backward pass and it can only do that for tensors. If we use .item() to extract just the data, then pytorch cannot calculcate the backard pass any longer on the extracted data.
+        #print(nll)
 
 
+    loss = sum(nll)/len(nll)
+    print(loss.item())
+
+    # do a backward pass and calculate the gradient of the loss w.r.t. each parameter
+    # make sure that all parameter gradients are zero before doing the backward pass
+    W.grad = None
+    loss.backward()
+    W.grad
+
+
+    # Update the parameters and repeat
+    W.data += -1*W.grad # Do not update the entire W directly, instead update the data in as W.data. We will get an error if we update W directly because we will be modifying the whole tensor object in place and pytorch does not allow that.
+
+```
+
+```{python}
+probs[8]
+```
+
+
+
+Make a more efficient loop 
+
+# Initialize for all examples
+
+```{python}
+# initialize all the inputs and parameters
+xs, ys = [], []
+
+for word in words:
+    chrs = "."+word+"."
+    for ch1, ch2 in zip(chrs, chrs[1:]):
+        ix1 = stoi[ch1]
+        ix2 = stoi[ch2]
+        #print(ch1, ch2, sep = "")
+        xs.append(ix1)
+        ys.append(ix2)
+# Convert xs and ys to pytorch tensors
+xs = torch.tensor(xs)
+ys = torch.tensor(ys)
+num = xs.nelement()
+print("number of examples = ", num)
+
+
+g = torch.Generator().manual_seed(12343354351)
+xenc = F.one_hot(xs, num_classes = 27).float()
+W = torch.randn(size = (27,27), requires_grad=True, generator = g)
+
+```
+
+
+# Run gradient descent for all examples
+
+```{python}
+
+for _ in range(500):
+    # do a forward pass and calculate the loss
+    logits = xenc @ W
+    counts = logits.exp()
+    probs = counts / counts.sum(dim = 1, keepdim=True)
+
+    # Calculate the neg log likelihodd for the known next character in the training data
+
+    loss = -probs[torch.arange(num), ys].log().mean()
+    print(loss.item())
+    
+    # do a backward pass and calculate the gradient of the loss w.r.t. each parameter
+    # make sure that all parameter gradients are zero before doing the backward pass
+    W.grad = None
+    loss.backward()
+
+
+    # Update the parameters and repeat
+    W.data += -50*W.grad 
+```
+
+What is the lower limit that loss should go down to?
+The number we got from the count-based bigram model was around 2.27. Therefore, we expec tthe loss to go atleast to that number. We can see that the loss for this network stabilizes around 2.19
+
+# Make predictions using the neural net
+
+```{python}
+gen = torch.Generator().manual_seed(347291378491)
+
+for _ in range(20):
+    char_list= ["."]
+    ind = stoi["."]
+    while True:
+        p = probs[ind]
+        # If all characters were equally likely
+        #p = torch.ones(27)/27.0
+        ind = torch.multinomial(input = p, num_samples = 1, replacement = True, generator=gen).item()
+        #print(ind)
+        #print(sample_ind)
+        sample_char = itos[ind]
+        char_list.append(sample_char)
+        if ind == stoi["."]:
+            break
+    print(''.join(char_list))
+```
