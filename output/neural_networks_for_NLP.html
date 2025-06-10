@@ -91,6 +91,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#evaluate-the-quality-of-the-bigram-model-using-a-single-number---loss" id="toc-evaluate-the-quality-of-the-bigram-model-using-a-single-number---loss" class="nav-link" data-scroll-target="#evaluate-the-quality-of-the-bigram-model-using-a-single-number---loss">Evaluate the quality of the bigram model using a single number - loss</a></li>
   <li><a href="#building-a-character-prediction-bigram-model-using-pytorch" id="toc-building-a-character-prediction-bigram-model-using-pytorch" class="nav-link" data-scroll-target="#building-a-character-prediction-bigram-model-using-pytorch">Building a character-prediction bigram model using pytorch</a></li>
   <li><a href="#prepare-the-training-data" id="toc-prepare-the-training-data" class="nav-link" data-scroll-target="#prepare-the-training-data">Prepare the training data</a></li>
+  <li><a href="#define-weights-for-each-of-the-training-examples" id="toc-define-weights-for-each-of-the-training-examples" class="nav-link" data-scroll-target="#define-weights-for-each-of-the-training-examples">Define weights for each of the training examples</a></li>
   </ul>
 </nav>
 </div>
@@ -154,7 +155,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="get-some-data" class="level1">
 <h1>Get some data</h1>
 <p>Get some Indian names from a <a href="https://www.acko.com/health-insurance/s/pregnancy/baby-names/modern-indian-baby-names-for-boys-and-girls-with-meanings/">website</a> and save them in a file called <code>names.txt</code></p>
-<div id="c5babfb6" class="cell" data-execution_count="1">
+<div id="31058a5c" class="cell" data-execution_count="1">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(<span class="st">"names.txt"</span>) <span class="im">as</span> <span class="bu">file</span>:</span>
@@ -165,14 +166,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove the characters after '-'' as they are not part of the name and make all characters lowercase, and remove leading and training whitespaces</span></span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>words <span class="op">=</span> [word.split(<span class="st">"-"</span>)[<span class="dv">0</span>].lower().strip() <span class="cf">for</span> word <span class="kw">in</span> text]</span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>words[:<span class="dv">5</span>], <span class="bu">len</span>(words), <span class="bu">min</span>(<span class="bu">len</span>(w) <span class="cf">for</span> w <span class="kw">in</span> words), <span class="bu">max</span>(<span class="bu">len</span>(w) <span class="cf">for</span> w <span class="kw">in</span> words)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="16">
+<div class="cell-output cell-output-display" data-execution_count="22">
 <pre><code>(['aadhvita', 'aadhira', 'amiya', 'aarna', 'aashna'], 480, 3, 12)</code></pre>
 </div>
 </div>
 </section>
 <section id="get-a-list-of-character-bigrams-from-the-word-list" class="level1">
 <h1>Get a list of character bigrams from the word list</h1>
-<div id="c1a3fe6f" class="cell" data-execution_count="2">
+<div id="0c89bc2a" class="cell" data-execution_count="2">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>bigrams<span class="op">=</span>{}</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> word <span class="kw">in</span> words:</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    chs <span class="op">=</span> <span class="st">'.'</span><span class="op">+</span>word<span class="op">+</span><span class="st">'.'</span></span>
@@ -184,9 +185,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">#print(ch1, ch2, sep = "")</span></span>
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">#bigrams</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="dfe788e1" class="cell" data-execution_count="3">
+<div id="61486de6" class="cell" data-execution_count="3">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">sorted</span>(bigrams.items(), key <span class="op">=</span> <span class="kw">lambda</span> kv: kv[<span class="dv">1</span>], reverse <span class="op">=</span> <span class="va">True</span>)[:<span class="dv">10</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="18">
+<div class="cell-output cell-output-display" data-execution_count="24">
 <pre><code>[('a.', 152),
  ('an', 137),
  ('ha', 121),
@@ -203,7 +204,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="save-the-bigrams-into-a-tensor-so-that-we-can-later-use-pytorch" class="level1">
 <h1>Save the bigrams into a tensor so that we can later use pytorch</h1>
 <p>Since tensor has no labels, we will need a mapping from indices to characters and vice-versa</p>
-<div id="0c4ab23c" class="cell" data-execution_count="4">
+<div id="9356a9b3" class="cell" data-execution_count="4">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>all_chars <span class="op">=</span> <span class="bu">list</span>(<span class="bu">set</span>(char <span class="cf">for</span> word <span class="kw">in</span> words <span class="cf">for</span> char <span class="kw">in</span> word))</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co"># ANother way to do the above</span></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>all_chars <span class="op">=</span> <span class="bu">list</span>(<span class="bu">set</span>(<span class="st">""</span>.join(words)))</span>
@@ -219,7 +220,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>stoi[<span class="st">'.'</span>] <span class="op">=</span> <span class="dv">26</span></span>
 <span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>itos <span class="op">=</span> {i:s <span class="cf">for</span> s,i <span class="kw">in</span> stoi.items()}</span>
 <span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>stoi, itos</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="19">
+<div class="cell-output cell-output-display" data-execution_count="25">
 <pre><code>({'a': 0,
   'b': 1,
   'c': 2,
@@ -277,7 +278,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <p>Now, initialize an empty tensor to save all the bigram counts</p>
-<div id="47963e56" class="cell" data-execution_count="5">
+<div id="c7679195" class="cell" data-execution_count="5">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># starting with a baseline of one to avoid zero counts.</span></span>
@@ -295,7 +296,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="visualize-the-matrix" class="level1">
 <h1>Visualize the matrix</h1>
-<div id="da7bdff0" class="cell" data-execution_count="6">
+<div id="b8de11d5" class="cell" data-execution_count="6">
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize <span class="op">=</span> (<span class="dv">10</span>, <span class="dv">10</span>))</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>im <span class="op">=</span> ax.imshow(N)</span>
@@ -319,7 +320,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="calculate-probability-of-a-character-following-abother-character" class="level1">
 <h1>Calculate probability of a character following abother character</h1>
-<div id="170a065f" class="cell" data-execution_count="7">
+<div id="1c7ee6b1" class="cell" data-execution_count="7">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>character <span class="op">=</span> <span class="st">'a'</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>idx1 <span class="op">=</span> stoi[<span class="st">'a'</span>]</span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>counts <span class="op">=</span> N[idx1].<span class="bu">float</span>()</span>
@@ -328,7 +329,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>counts, sum_counts</span>
 <span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> counts<span class="op">/</span>sum_counts</span>
 <span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>p</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="22">
+<div class="cell-output cell-output-display" data-execution_count="28">
 <pre><code>tensor([0.0811, 0.0146, 0.0040, 0.0359, 0.0027, 0.0013, 0.0239, 0.0386, 0.0332,
         0.0226, 0.0399, 0.0332, 0.0293, 0.1835, 0.0013, 0.0027, 0.0027, 0.0798,
         0.0266, 0.0306, 0.0040, 0.0585, 0.0040, 0.0013, 0.0372, 0.0040, 0.2035])</code></pre>
@@ -338,7 +339,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="calculate-the-tensor-of-probabilities" class="level1">
 <h1>Calculate the tensor of probabilities</h1>
 <p>We want to divide the original counts with sums of each row. We have to follow broadcasting semantics of tensors and have to understand what operations are happening in the background.</p>
-<div id="922a2b90" class="cell" data-execution_count="8">
+<div id="3303aba8" class="cell" data-execution_count="8">
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>Np <span class="op">=</span> N.<span class="bu">float</span>()</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co"># The dimension along which sum is computed is reduced to size 1 in output tensor</span></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co"># I want to sum across all rows. Therefore, I want sum along all rows in a single column</span></span>
@@ -371,7 +372,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h1>Make predictions based on calculated probabilities</h1>
 <p>We will make predictions by sampling from the calculated probabilities using <code>torch.multinomial</code></p>
 <p>Let’s test out the random number generator first to get a feel of the function</p>
-<div id="24801d9a" class="cell" data-execution_count="9">
+<div id="27a799a1" class="cell" data-execution_count="9">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">347291378491</span>) <span class="co"># fix the seed</span></span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>seq <span class="op">=</span> torch.rand(<span class="dv">3</span>, generator <span class="op">=</span> g) <span class="co"># generate three random numbers from uniform distribution between 0 and 1</span></span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Normalize the numbers to get a probability distribution</span></span>
@@ -382,11 +383,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell-output cell-output-stdout">
 <pre><code>tensor([0.5256, 0.2605, 0.2139])</code></pre>
 </div>
-<div class="cell-output cell-output-display" data-execution_count="24">
+<div class="cell-output cell-output-display" data-execution_count="30">
 <pre><code>tensor([2, 0, 0, 2, 0, 2, 0, 2, 0, 1])</code></pre>
 </div>
 </div>
-<div id="2ca1a993" class="cell" data-execution_count="10">
+<div id="31b95d93" class="cell" data-execution_count="10">
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>gen <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">347291378491</span>)</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">20</span>):</span>
@@ -438,7 +439,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><p>Therefore, we can use negative log-likelihood as the loss function. For a very good model, negative log-likelihood will be low.</p></li>
 <li><p>Typically we use an average of log-likelihood instead of raw log-likelihood, which can go from 0 to infinity.</p></li>
 </ul>
-<div id="f13ef14d" class="cell" data-execution_count="11">
+<div id="0169823d" class="cell" data-execution_count="11">
 <div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>log_likelihood <span class="op">=</span> <span class="fl">0.0</span></span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>n <span class="op">=</span> <span class="dv">0</span></span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> word <span class="kw">in</span> words:</span>
@@ -461,7 +462,7 @@ Average neg log likelihood for character-level bigram model
 </div>
 </div>
 <p>using the above method, we can calculate the loss function for any given word.</p>
-<div id="bb820e54" class="cell" data-execution_count="12">
+<div id="c18f68c0" class="cell" data-execution_count="12">
 <div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>log_likelihood <span class="op">=</span> <span class="fl">0.0</span></span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>n <span class="op">=</span> <span class="dv">0</span></span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>words_list <span class="op">=</span> [<span class="st">"shefali"</span>]</span>
@@ -504,7 +505,7 @@ Negative log likelihood:
 <li>Our ys (or labels) will consist of the index of the second character in the bigram</li>
 </ul>
 <p>Process: Our model will take in the first character stored in xs and predict the second character stored in ys. We will then calculate a loss function, which will be negative log-likelihood value. Once loss is calculated, we will perform back propagation to calculate gradients with respect to parameters in the model, then update the parameters based on the calculcated gradients. We will then do a forward pass again and re-calculate the loss and iterate.</p>
-<div id="86fed137" class="cell" data-execution_count="13">
+<div id="d0247d95" class="cell" data-execution_count="13">
 <div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>xs, ys <span class="op">=</span> [], []</span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> word <span class="kw">in</span> words[:<span class="dv">1</span>]:</span>
@@ -532,13 +533,13 @@ ta
 a.</code></pre>
 </div>
 </div>
-<div id="6f3d3363" class="cell" data-execution_count="14">
+<div id="88f22ae8" class="cell" data-execution_count="14">
 <div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="bu">type</span>(xs[<span class="dv">1</span>]), <span class="bu">type</span>(ys[<span class="dv">1</span>]))</span>
 <span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>xs.dtype, ys.dtype, xs.shape, ys.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>&lt;class 'torch.Tensor'&gt; &lt;class 'torch.Tensor'&gt;</code></pre>
 </div>
-<div class="cell-output cell-output-display" data-execution_count="29">
+<div class="cell-output cell-output-display" data-execution_count="35">
 <pre><code>(torch.int64, torch.int64, torch.Size([9]), torch.Size([9]))</code></pre>
 </div>
 </div>
@@ -548,11 +549,11 @@ a.</code></pre>
 <li>We will use one-hot encoding on the integers</li>
 <li>After one-hot encoding, our training data consists of 9 examples, each with 27 attributes.</li>
 </ul>
-<div id="3c460c68" class="cell" data-execution_count="15">
+<div id="625636ea" class="cell" data-execution_count="15">
 <div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch.nn.functional <span class="im">as</span> F</span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>xenc <span class="op">=</span> F.one_hot(xs, num_classes<span class="op">=</span><span class="dv">27</span>)</span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>xenc, xenc.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="30">
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>xenc, xenc.shape, plt.imshow(xenc),(xenc.dtype)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="36">
 <pre><code>(tensor([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 1],
          [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -571,7 +572,142 @@ a.</code></pre>
           0, 0, 0],
          [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 0]]),
+ torch.Size([9, 27]),
+ &lt;matplotlib.image.AxesImage at 0x151fd5190&gt;,
+ torch.int64)</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="neural_networks_for_NLP_files/figure-html/cell-16-output-2.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>When we plug in values into a neural network, we want them to be floating points and not integers, but right now, the datatype ox <code>xenc</code> is <code>int64</code>. So we will need to convert it to float.</p>
+<div id="7b1fab0c" class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>xenc <span class="op">=</span> xenc.<span class="bu">float</span>()</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>xenc.dtype</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="37">
+<pre><code>torch.float32</code></pre>
+</div>
+</div>
+</section>
+<section id="define-weights-for-each-of-the-training-examples" class="level1">
+<h1>Define weights for each of the training examples</h1>
+<p>We are building a simple neural net that only has one layer that performs the transformation W.x Therefore, we will need to initialize weights to multiply with the inputs.</p>
+<div id="d8b57dae" class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">12343354351</span>)</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>W <span class="op">=</span> torch.randn((<span class="dv">27</span>,<span class="dv">1</span>), generator <span class="op">=</span> g)</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>W.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="38">
+<pre><code>torch.Size([27, 1])</code></pre>
+</div>
+</div>
+<p>Multiple inputs by weights. If we have a weight matrix of dimensions 27X1, and we have 9 training examples of dimension 9X27, we should get a single number for each training example as a result of the operation W.x</p>
+<p>The operator <code>@</code> in pytorch denotes matrix multiplication.</p>
+<div id="57892c95" class="cell" data-execution_count="18">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>xenc <span class="op">@</span> W</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="39">
+<pre><code>tensor([[-0.6725],
+        [ 0.2174],
+        [ 0.2174],
+        [ 0.0705],
+        [-0.9999],
+        [-0.4041],
+        [-0.4643],
+        [-0.8599],
+        [ 0.2174]])</code></pre>
+</div>
+</div>
+<p>However, in this particular example, we don’t want one output, we want 27 outputs, where each output can eventually be used to predict the probability of the next character. There are 27 possible next characters. Therefore, we need a W of dimension 27X27</p>
+<div id="cb3a5a65" class="cell" data-execution_count="19">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>W <span class="op">=</span> torch.randn((<span class="dv">27</span>,<span class="dv">27</span>), generator <span class="op">=</span> g)</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>W.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="40">
+<pre><code>torch.Size([27, 27])</code></pre>
+</div>
+</div>
+<p>The above can be thought of as a layer of 27 neurons. Now multiply x and W to get 27 outputs for each training example</p>
+<div id="5493c19d" class="cell" data-execution_count="20">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>xenc <span class="op">@</span> W, (xenc<span class="op">@</span>W).shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="41">
+<pre><code>(tensor([[-0.7424,  1.7975,  0.8627, -0.3703,  0.5054,  0.4837, -2.8144,  0.0930,
+           0.5141, -0.6617, -0.0431,  0.9968,  0.7401, -0.9899,  0.2421, -0.0726,
+           1.3939, -1.2926,  1.5923,  0.8613, -1.4328, -1.3499,  0.7007, -0.3469,
+          -1.0216,  1.9760,  1.1534],
+         [-0.3623, -1.8704, -0.7680, -1.3348,  0.1040,  1.4544,  0.5978, -1.8655,
+          -0.6221,  0.1318, -0.9264, -0.7425, -1.1098, -0.7208,  1.8117, -1.8414,
+          -0.5054, -0.4583,  0.8429, -0.7656, -0.3686,  0.1039,  1.9354, -0.1073,
+           0.8509,  0.7007, -0.0886],
+         [-0.3623, -1.8704, -0.7680, -1.3348,  0.1040,  1.4544,  0.5978, -1.8655,
+          -0.6221,  0.1318, -0.9264, -0.7425, -1.1098, -0.7208,  1.8117, -1.8414,
+          -0.5054, -0.4583,  0.8429, -0.7656, -0.3686,  0.1039,  1.9354, -0.1073,
+           0.8509,  0.7007, -0.0886],
+         [ 0.5189,  0.2309,  0.5100, -0.2687, -2.1415, -0.2084,  0.0133,  0.8084,
+          -2.1835,  0.5203, -0.0862, -0.2345, -0.9518, -0.5447,  1.9697, -0.7639,
+           0.6778, -2.6884,  0.2753,  1.0296, -0.0980,  0.3261, -0.1965,  0.1875,
+          -1.7988, -0.8649, -0.7217],
+         [ 1.4435,  0.3890,  0.8766,  0.5013, -0.7406,  0.5480, -0.5793, -2.5789,
+          -1.1188, -0.7921, -0.1998,  0.0091,  0.2205, -0.5063,  0.5389, -0.7098,
+          -0.3810, -0.7125, -0.1837,  1.0020, -0.2830, -0.7772,  0.1337,  1.4698,
+          -1.6268, -0.7760, -1.4500],
+         [-1.2130, -3.4333,  1.1246, -0.3589,  1.1337, -0.7390, -0.5040,  0.6295,
+          -1.0302, -0.8397, -0.3577,  1.0121, -2.6331, -0.0675, -1.0236,  0.7916,
+          -0.3809, -1.3150,  1.2453, -0.9899,  0.8123,  0.0362,  0.9934,  1.1043,
+           0.3833,  0.2381,  0.8756],
+         [ 2.8067, -0.1051,  0.5654, -0.1242, -0.1512,  0.3094,  1.4111, -0.5852,
+          -0.3654, -0.5256, -0.1443,  1.0828, -0.0617,  0.1240, -1.2100,  0.6160,
+           0.1816,  0.6104, -0.3691,  0.3755,  0.6221,  0.3442, -0.4771,  1.2634,
+           2.2827, -1.3325, -0.4009],
+         [-0.3948,  0.6081,  0.5395, -0.5734,  1.0984,  0.8024,  0.3580, -0.3580,
+          -0.3236,  0.3608, -1.1355,  0.0218,  1.2138,  0.7073, -1.3687,  2.1691,
+          -0.3960,  1.9441,  0.3903, -1.5677, -0.3382, -0.6338,  0.1673,  2.5019,
+          -0.2205, -1.0206,  1.8766],
+         [-0.3623, -1.8704, -0.7680, -1.3348,  0.1040,  1.4544,  0.5978, -1.8655,
+          -0.6221,  0.1318, -0.9264, -0.7425, -1.1098, -0.7208,  1.8117, -1.8414,
+          -0.5054, -0.4583,  0.8429, -0.7656, -0.3686,  0.1039,  1.9354, -0.1073,
+           0.8509,  0.7007, -0.0886]]),
  torch.Size([9, 27]))</code></pre>
+</div>
+</div>
+<p>Each row of the matrix multiplication indicates the output of each of the 27 neurons for the training example on that row. For example, the 15th number in the 3rd row indicates the output of the 15th neuron for the 3rd input.</p>
+<p>Now these output numbers can be thought of as log of counts. therefore, to get the counts, we will take an exponential of these numbers.</p>
+<p>The exponential turns all numbers into a positive number. We can now normalize all 27 outputs for each example to get probabilities. The transformation above is also called <code>softmax</code> transformation.</p>
+<div id="7818f629" class="cell" data-execution_count="21">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> (xenc <span class="op">@</span> W) <span class="co"># log-counts </span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>counts <span class="op">=</span> logits.exp()</span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>probs <span class="op">=</span> counts <span class="op">/</span> (counts.<span class="bu">sum</span>(dim <span class="op">=</span> <span class="dv">1</span>, keepdim<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a>probs, probs[<span class="dv">0</span>].<span class="bu">sum</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="42">
+<pre><code>(tensor([[0.0095, 0.1205, 0.0473, 0.0138, 0.0331, 0.0324, 0.0012, 0.0219, 0.0334,
+          0.0103, 0.0191, 0.0541, 0.0419, 0.0074, 0.0254, 0.0186, 0.0805, 0.0055,
+          0.0981, 0.0472, 0.0048, 0.0052, 0.0402, 0.0141, 0.0072, 0.1440, 0.0633],
+         [0.0186, 0.0041, 0.0124, 0.0070, 0.0296, 0.1142, 0.0485, 0.0041, 0.0143,
+          0.0304, 0.0106, 0.0127, 0.0088, 0.0130, 0.1632, 0.0042, 0.0161, 0.0169,
+          0.0619, 0.0124, 0.0184, 0.0296, 0.1847, 0.0239, 0.0624, 0.0537, 0.0244],
+         [0.0186, 0.0041, 0.0124, 0.0070, 0.0296, 0.1142, 0.0485, 0.0041, 0.0143,
+          0.0304, 0.0106, 0.0127, 0.0088, 0.0130, 0.1632, 0.0042, 0.0161, 0.0169,
+          0.0619, 0.0124, 0.0184, 0.0296, 0.1847, 0.0239, 0.0624, 0.0537, 0.0244],
+         [0.0506, 0.0379, 0.0501, 0.0230, 0.0035, 0.0244, 0.0305, 0.0676, 0.0034,
+          0.0507, 0.0276, 0.0238, 0.0116, 0.0175, 0.2159, 0.0140, 0.0593, 0.0020,
+          0.0397, 0.0843, 0.0273, 0.0417, 0.0247, 0.0363, 0.0050, 0.0127, 0.0146],
+         [0.1341, 0.0467, 0.0760, 0.0522, 0.0151, 0.0547, 0.0177, 0.0024, 0.0103,
+          0.0143, 0.0259, 0.0319, 0.0395, 0.0191, 0.0543, 0.0156, 0.0216, 0.0155,
+          0.0263, 0.0862, 0.0238, 0.0145, 0.0362, 0.1376, 0.0062, 0.0146, 0.0074],
+         [0.0081, 0.0009, 0.0834, 0.0189, 0.0841, 0.0129, 0.0164, 0.0508, 0.0097,
+          0.0117, 0.0189, 0.0745, 0.0019, 0.0253, 0.0097, 0.0598, 0.0185, 0.0073,
+          0.0941, 0.0101, 0.0610, 0.0281, 0.0731, 0.0817, 0.0397, 0.0344, 0.0650],
+         [0.2775, 0.0151, 0.0295, 0.0148, 0.0144, 0.0228, 0.0687, 0.0093, 0.0116,
+          0.0099, 0.0145, 0.0495, 0.0158, 0.0190, 0.0050, 0.0310, 0.0201, 0.0309,
+          0.0116, 0.0244, 0.0312, 0.0236, 0.0104, 0.0593, 0.1643, 0.0044, 0.0112],
+         [0.0109, 0.0298, 0.0278, 0.0091, 0.0486, 0.0361, 0.0232, 0.0113, 0.0117,
+          0.0232, 0.0052, 0.0166, 0.0545, 0.0329, 0.0041, 0.1418, 0.0109, 0.1132,
+          0.0239, 0.0034, 0.0116, 0.0086, 0.0192, 0.1978, 0.0130, 0.0058, 0.1058],
+         [0.0186, 0.0041, 0.0124, 0.0070, 0.0296, 0.1142, 0.0485, 0.0041, 0.0143,
+          0.0304, 0.0106, 0.0127, 0.0088, 0.0130, 0.1632, 0.0042, 0.0161, 0.0169,
+          0.0619, 0.0124, 0.0184, 0.0296, 0.1847, 0.0239, 0.0624, 0.0537, 0.0244]]),
+ tensor(1.))</code></pre>
 </div>
 </div>
 </section>

@@ -291,5 +291,62 @@ xs and ys are a list of integers. But we cannot feed integers to a neural networ
 ```{python}
 import torch.nn.functional as F
 xenc = F.one_hot(xs, num_classes=27)
-xenc, xenc.shape
+xenc, xenc.shape, plt.imshow(xenc),(xenc.dtype)
+
 ```
+
+When we plug in values into a neural network, we want them to be floating points and not integers, but right now, the datatype ox `xenc` is `int64`. So we will need to convert it to float.
+```{python}
+xenc = xenc.float()
+xenc.dtype
+```
+
+# Define weights for each of the training examples
+
+We are building a simple neural net that only has one layer that performs the transformation W.x Therefore, we will need to initialize weights to multiply with the inputs.
+```{python}
+g = torch.Generator().manual_seed(12343354351)
+W = torch.randn((27,1), generator = g)
+W.shape
+```
+
+Multiple inputs by weights.
+If we have a weight matrix of dimensions 27X1, and we have 9 training examples of dimension 9X27, we should get a single number for each training example as a result of the operation W.x
+
+The operator `@` in pytorch denotes matrix multiplication.
+
+```{python}
+xenc @ W
+```
+
+However, in this particular example, we don't want one output, we want 27 outputs, where each output can eventually be used to predict the probability of the next character. There are 27 possible next characters. Therefore, we need a W of dimension 27X27
+
+```{python}
+
+W = torch.randn((27,27), generator = g)
+W.shape
+```
+
+The above can be thought of as a layer of 27 neurons.
+Now multiply x and W to get 27 outputs for each training example
+
+```{python}
+xenc @ W, (xenc@W).shape
+```
+
+Each row of the matrix multiplication indicates the output of each of the 27 neurons for the training example on that row. For example, the 15th number in the 3rd row indicates the output of the 15th neuron for the 3rd input.
+
+Now these output numbers can be thought of as log of counts. therefore, to get the counts, we will take an exponential of these numbers.
+
+The exponential turns all numbers into a positive number. We can now normalize all 27 outputs for each example to get probabilities.
+The transformation above is also called `softmax` transformation.
+
+```{python}
+logits = (xenc @ W) # log-counts 
+counts = logits.exp()
+probs = counts / (counts.sum(dim = 1, keepdim=True))
+probs, probs[0].sum()
+```
+
+
+
