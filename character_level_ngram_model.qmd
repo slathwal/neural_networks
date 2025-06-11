@@ -1,7 +1,6 @@
 ---
 title: Developing a character-prediction n-gram model using MLP
 author: Shefali Lathwal
-format: html
 date: 2025-06-11
 date-modified: last-modified
 format: html
@@ -16,8 +15,54 @@ toc: true
 - We are going to initially follow the paper by [Bengio et al. 2003](https://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf)
 
 # Build the training dataset
+Just like the Bengio et al. paper, let's build a training dataset with three characters in context.
+
+- Remember that we have "." on our training data itself. Therefore we are using a * to denote the beginning and end of words.
+
+- Nour our context is not a single character but a sequence of three characters. So each row in our xs training set would ba a list of three indices, and ys would be a single index
+```{python}
+with open("data/names.txt") as file:
+    text = file.read().splitlines()
+file.close()
+words = text
+len(words)
+context_length = 3
+
+# Create the lookup for character indices including a start and end of line character to the all_chars list
+
+all_chars = sorted(list(set("".join(words)))+["*"])
+len(all_chars), all_chars
+
+stoi = {s:i for i, s in enumerate(all_chars)}
+itos  = {i:s for i, s in enumerate(all_chars)}
+stoi
+```
+
+```{python}
+import torch
+xs, ys = [], []
+
+for word in words[:1]:
+    chs = "*"*context_length+word+"*"
+    #print(chs)
+    for ind in range(len(chs) - context_length):
+        ch1 = chs[ind:ind+context_length]
+        ch2 = chs[ind+context_length]
+        #print(f"{ch1}, {ch2}")
+        xs.append([stoi[ch] for ch in ch1])
+        ys.append(stoi[ch2])
+#print(xs, ys)
+num = len(ys)
+print("number of examples:", num)
+
+xs = torch.tensor(xs) # 10X3
+ys = torch.tensor(ys) # 10
+print(f"{xs.dtype=}\n {xs.shape=}\n {ys.dtype=}\n {ys.shape=}\n {xs=} \n {ys=}")
+```
 
 # Implement the embedding lookup
+
+
 
 # Implement the hidden layer
 
