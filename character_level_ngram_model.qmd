@@ -1,0 +1,38 @@
+---
+title: Developing a character-prediction n-gram model using MLP
+author: Shefali Lathwal
+format: html
+date: 2025-06-11
+date-modified: last-modified
+format: html
+jupyter: cs224n
+echo: true
+toc: true
+---
+
+- Previously, we built character-level bigram model using counts matrix and using a linear layer in a neuron.
+- We also saw how to evaluate the model using neg log-likelihood
+- We are now going to extend the model to use more characters in context.
+- We are going to initially follow the paper by [Bengio et al. 2003](https://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf)
+
+# Build the training dataset
+
+# Implement the embedding lookup
+
+# Implement the hidden layer
+
+# Implement the output layer
+
+# Calculate the loss
+
+# Implement the training loop
+
+# Train in minibatches instead of the whole dataset
+
+# Tuning the learning rate
+
+# Split the data into training, validation and test sets
+
+# Visualize the embedding vectors
+
+# Sample from the model

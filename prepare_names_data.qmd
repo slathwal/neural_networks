@@ -1,0 +1,86 @@
+---
+title: Prepare names.txt file for neural network training
+date: 2025-06-11
+author: Shefali Lathwal
+date-modified: last-modified
+echo: true
+toc: true
+format: html
+jupyter: cs224n
+---
+
+I have collected data from three sources:
+
+1. https://www.acko.com/health-insurance/s/pregnancy/baby-names/modern-indian-baby-names-for-boys-and-girls-with-meanings/ - saved as `website_names.txt`
+2. https://www.kaggle.com/datasets/jasleensondhi/indian-names-corpus-nltk-data/data - saved as `first_names.txt`
+3. https://www.kaggle.com/datasets/meemr5/indian-names-boys-girls - saved as `indian_names.txt`
+
+I want to read the data from the above sources, clean it, remove duplicates and save it in a file called `names.txt`
+
+# Process website_names.txt
+```{python}
+with open("data/website_names.txt") as file:
+    text = text = file.read().splitlines()
+file.close()
+#print(type(text), len(text))
+# Remove empty strings from the list
+text = [x for x in text if x]
+text
+# Remove the characters after '-'' as they are not part of the name and make all characters lowercase, and remove leading and training whitespaces
+names1 = [word.split("-")[0].lower().strip() for word in text]
+names1[:10], len(names1)
+```
+
+# Process first_names.txt
+
+```{python}
+with open("data/first_names.txt") as file:
+    text = file.read().splitlines()
+file.close()
+#print(type(text), len(text))
+
+# For all words in the list, use all lowercase letters and remove leading and trailing white spaces
+names2 = [word.lower().strip() for word in text]
+names2[:10], len(names2)
+```
+
+# Process indian_names.txt
+
+```{python}
+with open("data/indian_names.txt") as file:
+    text = file.read().splitlines()
+file.close()
+len(text), text[1:10]
+
+# For all words in the list, use all lowercase letters and remove leading and trailing white spaces
+names3 = [word.lower().strip() for word in text]
+names3[:10], len(names3)
+```
+
+# Combine words from all three sources, remove duplicates and save in a new file names.txt
+
+```{python}
+names = list(set(names1+names2+names3))
+print(f"total length of all three lists: {len(names1)+len(names2)+len(names3)}")
+
+print(f"Total length of combined list with duplicates removed: {len(names)}")
+len(names), names[:10]
+```
+
+# Write the names to a .txt file
+
+```{python}
+with open("data/names.txt", "w") as file:
+    text = "\n".join(names)
+    file.write(text)
+file.close()
+```
+
+# Read the data from the file to make sure it's working as expected
+
+```{python}
+with open("data/names.txt", "r") as file:
+    text = file.read().splitlines()
+file.close()
+text[:10], len(text)
+```

@@ -1,3 +1,8 @@
+The final names dataset is compiled from a few sources:
+1. Get some Indian names from a [website](https://www.acko.com/health-insurance/s/pregnancy/baby-names/modern-indian-baby-names-for-boys-and-girls-with-meanings/) and save them in a file called `names.txt`
+2. https://www.kaggle.com/datasets/jasleensondhi/indian-names-corpus-nltk-data/data
+3. https://www.kaggle.com/datasets/meemr5/indian-names-boys-girls
+
 Learning to build neural networks, with a focus on Natural Language Processing, from the following sources:
 
 1. [Neural Networks: Zero to Hero](https://www.youtube.com/playlist?list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ) series on Youtube.
