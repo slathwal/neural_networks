@@ -25,8 +25,7 @@ with open("data/names.txt") as file:
     text = file.read().splitlines()
 file.close()
 words = text
-len(words)
-
+print(f"Vocabulary size: {len(words)}")
 
 # Create the lookup for character indices including a start and end of line character to the all_chars list
 
@@ -70,6 +69,11 @@ print(f"{xs.dtype=}\n {xs.shape=}\n {ys.dtype=}\n {ys.shape=}\n {xs=} \n {ys=}")
 ```
 
 # Implement the embedding lookup
+We can think of this layer in two ways:
+
+- indexing into an embedding matrix C
+- we can also think of it as a first layer of the neural network with a weight matrix = C, no bias and no non-linearity.
+
 The lookup matrix C will consist of the embeddings for each character.
 ```{python}
 C = torch.randn(size = (vocab_size, embed_size)) # 30 X 2
@@ -78,10 +82,45 @@ C, C.shape
 
 For each training example, we want to get the embedding for each of the three characters in context
 
+- We will use the `tensor.view()` function which just manipulates the shape of a tensor without changing the storage. It is the most efficient way to reshape a tensor. This has to do with the internals of tensor.
+
 ```{python}
 xemb = C[xs] # 10X3X2
-xemb = xemb.view(num, -1) #10X6
-xemb.shape 
+
+# concat the embeddings for all three characters in context
+# We can use -1 in the second dimension, but it's best to be explicit where possible.
+xemb = xemb.view(num, context_length*embed_size) #10X6
+xemb, xemb.shape 
+```
+
+We can also change the shape of tensors as follows:
+```{python}
+# Using torch.cat and torch.bind
+xemb = C[xs] # 10X3X2
+# Pluck out the embeddings of the first, second and third character from all examples
+xemb = torch.cat([xemb[:,0,:], xemb[:,0,:], xemb[:,0,:]], dim = 1) # concatenate along the first dimension, i.e., columns
+xemb.shape
+xemb
+
+# torch.unbind gives a tuple of all sclices along a given dimension, already without it.
+xemb = C[xs] # 10X3X2
+unbound_list = torch.unbind(xemb, dim = 1) # gives us a list of tensors with all three example in dimension one separately
+xemb = torch.cat(unbound_list, dim = 1) # concatenate the list along dimension = 1
+xemb, xemb.shape
+```
+
+
+Another way of creating embeddings for characters is using one-hot vectors as follows.
+```{python}
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+
+x_one_hot = F.one_hot(xs, num_classes=vocab_size).float()
+x_one_hot.shape
+xemb2 = x_one_hot @ C
+xemb2, xemb2.shape
+xemb2 = xemb2.view(num, -1)
+(xemb == xemb2).all()
 ```
 
 # Implement the hidden layer
@@ -90,15 +129,20 @@ xemb.shape
 # The first part of the hidden layer is to multiply the embeddings with weights and matrices. The number of neurons in this hidden layer is a hyperparameter
 n_hidden = 100
 
-W1 = torch.randn(size = (context_length * embed_size,n_hidden)) # 6X100
-b1 = torch.randn(size = (n_hidden,)) # 100
+W1 = torch.randn(size = (context_length * embed_size,n_hidden)) # 6X100 # 6 = number of inputs to the layer
+b1 = torch.randn(size = (n_hidden,)) #100
 
-xl = xemb @ W1 + b1 # We can't do this without casting xemb
+xl = xemb @ W1 + b1 # We can't do this without casting xemb, b1 is being boradcast and added to each example, but make sure that each operation is happenign correctly.
 xl[0], xl.shape # 10X100
 
 # Send the output from linear operation to tanh function
 xh = xl.tanh()
 xh.shape
+
+# We cab also do the above in a single step
+xh2 = torch.tanh(xemb @ W1 + b1)
+xh3 = (xemb @ W1 + b1).tanh()
+torch.all(xh == xh3)
 ```
 
 # Implement the output layer
@@ -109,7 +153,7 @@ b2 = torch.rand(size = (vocab_size,)) #30
 
 logits = xh @ W2 + b2 # 10X30
 counts = logits.exp()
-probs = counts / counts.sum(dim = 1, keepdim = True)
+probs = counts / counts.sum(dim = 1, keepdim=True)
 ```
 
 # Calculate the loss
@@ -118,14 +162,29 @@ probs = counts / counts.sum(dim = 1, keepdim = True)
 # expectdd loss without training
 exp_loss = -torch.tensor([1./vocab_size]).log()
 loss = - probs[torch.arange(0, num), ys].log().mean()
-loss, exp_loss
+print(loss, exp_loss)
+
+# We can also directly use the function F.cross_entropy from pytorch
+import torch.nn.functional as F
+F.cross_entropy(logits, ys)
 ```
+
+When we use `F.cross_entropy`:
+
+- pytorch does not create intermediate tensors and is more efficient.
+
+- Also, the backward pass is much more efficient with this function than when we create intermediate tensors manually.
+
+- It is much more numerically well-behaved compared to manual calculations, especially when logits take on extreme positive values, where `exp()` can become infinite and we can get `nan` in calculations. In `F.cross_entropy()` pytorch internally makes the highest positive number = 1, and is therefore numerically well-behaved.
+
 We are quite far for expected loss, likely because of initialization issues that will be handled later. Let's implement the training loop for now.
 
 # Implement the training loop
 
 ## Initialization
 ```{python}
+g = torch.Generator().manual_seed(2147483647)
+
 xs, ys = [], []
 
 for word in words:
@@ -144,37 +203,33 @@ print("number of examples:", num)
 xs = torch.tensor(xs) # 10X3
 ys = torch.tensor(ys) # 10
 
-C = torch.randn(size = (vocab_size, embed_size)) # 30 X 2
+C = torch.randn(size = (vocab_size, embed_size), generator = g) # 30 X 2 # embedding layer
+W1 = torch.randn(size = (context_length * embed_size,n_hidden), generator=g) # 6X100 # hidden layer
+b1 = torch.randn(size = (n_hidden,), generator=g) # 100
 
+W2 = torch.randn(size = (n_hidden, vocab_size), generator=g) #100X30 # output later
+b2 = torch.rand(size = (vocab_size,), generator=g) #30
 
-W1 = torch.randn(size = (context_length * embed_size,n_hidden)) # 6X100
-b1 = torch.randn(size = (n_hidden,)) # 100
-
-W2 = torch.randn(size = (n_hidden, vocab_size)) #100X30
-b2 = torch.rand(size = (vocab_size,)) #30
-
-parameters = [C, W1, b1, W2, b2]
 # collect all the parameters
+parameters = [C, W1, b1, W2, b2]
+print(f"Total number of parameters:{(sum(p.nelement() for p in parameters))}")
+
 for p in parameters:
     p.requires_grad = True
 ```
 
 ## Training loop
 ```{python}
-for i in range(1000):
-    xemb = C[xs] # 10X3X2
-    xemb = xemb.view(num, -1) #10X6
+for i in range(1001):
+    xemb = C[xs].view(num, -1) # 10X3X2 --> 10X6
 
-    xl = xemb @ W1 + b1 # We can't do this without casting xemb
-
-    # Send the output from linear operation to tanh function
-    xh = xl.tanh() # 10X100
+    xh = torch.tanh(xemb @ W1 + b1) # 10X100
 
     logits = xh @ W2 + b2 # 10X30
-    counts = logits.exp()
-    probs = counts / counts.sum(dim = 1, keepdim = True)
-
-    loss = - probs[torch.arange(0, num), ys].log().mean()
+    #counts = logits.exp()
+    #probs = counts / counts.sum(dim = 1, keepdim = True)
+    loss = F.cross_entropy(logits, ys)
+    #loss = - probs[torch.arange(0, num), ys].log().mean()
     if i%50 == 0: 
         print(f"loss in iteration {i}: {loss.item()}")
     # Backward pass
@@ -183,16 +238,12 @@ for i in range(1000):
 
     loss.backward()
 
-    # Update gradients
+    # Update parameters
     for p in parameters:
         p.data += -0.1*p.grad
 ```
 
-```{python}
-print(loss.item())
-```
-
-Training loss after 1000 iterations with the whole dataset = 2.337923288345337
+Training loss after 1000 iterations with a learning rate of 0.1 = 2.3811113834381104
 
 # Sample from the model
 
@@ -233,32 +284,4 @@ for _ in range(20):
 
 The above training with the whole dataset is too slow. The initial loss is too high compared to the expected loss. Therefore, we need to fix these two problems.
 
-We will solve the above problems one by one.
-
-# Train in minibatches instead of the whole dataset
-We will sample a minibatch from the data instead of taking the whole data at every iteration of the gradient descent algorithm.
-
-```{python}
-#TODO
-```
-
-# Tuning the learning rate
-
-```{python}
-#TODO
-```
-
-# Split the data into training, validation and test sets
-```{python}
-#TODO
-```
-
-# Visualize the embedding vectors
-```{python}
-#TODO
-```
-
-```{python}
-#TODO
-```
-
+We will solve the above problems one by one in separate notebooks.
