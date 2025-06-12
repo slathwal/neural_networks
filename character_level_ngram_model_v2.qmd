@@ -161,7 +161,6 @@ for p in parameters:
     p.requires_grad = True
 ```
 
-Define a range to
 ```{python}
 lre = torch.linspace(-3, 0, 1000)
 lri = 10**lre
@@ -388,6 +387,7 @@ When training loss and validation loss are very similar, it indicates that our n
 
 1. Increase the number of parameters in the neural network by increasing the number of neurons in the hidden layer.
 2. Increase the embed_size to capture more information for each character
+3. We can also take more than three characters in context
 
 # Experiment - increase the parameters in the hidden layer
 
@@ -567,9 +567,154 @@ print("Validation loss:", loss.item())
 The training and dev losses are now 2.044 and 2.069 respectively after 100,000 steps.
 
 ```{python}
+plt.figure()
 plt.plot(np.arange(n_iters), lossi)
 plt.xlabel("iteration")
 plt.ylabel("loss")
+
+# It can also be useful to plot logloss instead of loss
+plt.figure()
+plt.plot(np.arange(n_iters), np.log10(lossi))
+plt.xlabel("iteration")
+plt.ylabel("Log loss")
+```
+
+# Sample from the model
+
+```{python}
+start_char = "*"
+end_char = "*"
+g = torch.Generator().manual_seed(123434)
+start_ind = stoi[start_char]
+for _ in range(20):
+    context = [start_ind]*context_length
+    all_chars = [start_char]*context_length
+    while True:  
+        # Now context contains the three character indices for our example
+        xembp = C[torch.tensor(context)].view(1, -1) # Want to generate just one character at a time.
+        xhp = (xembp @ W1 + b1).tanh() 
+        logitsp = xhp @ W2 + b2 
+        # Directly use the softmax function to calculate probabilites from logits
+        probsp = F.softmax(logitsp, dim = 1)
+        ind = torch.multinomial(probsp, num_samples = 1, replacement = True, generator = g)
+        ch = itos[ind.item()]
+        if (ch == end_char):
+            all_chars.append(ch)
+            break
+        else:   
+            all_chars.append(ch)
+            context = context[1:]+[ind.item()]
+    print("".join(all_chars))
+```
+
+
+#TODO - Think about how to visualize a n-dimensional embedding vector - refer to assignment 1 from CS224n
+
+# Experiment = Increase the context length to 6
+
+Rebuild the training, dev and test sets
+```{python}
+context_length = 6
+
+random.shuffle(words)
+n1 = int(0.8*len(words))
+n2 = int(0.9*len(words))
+n1, n2
+
+xstr, ystr = build_dataset(words[:n1], context_length=context_length)
+xsdev, ysdev = build_dataset(words[n1:n2], context_length=context_length)
+xstest, ystest = build_dataset(words[n2:], context_length=context_length)
+```
+
+Initialize
+```{python}
+
+n_hidden = 300
+embed_size = 10
+g = torch.Generator().manual_seed(4524757136458)
+C = torch.randn(size = (vocab_size, embed_size), generator=g) # 30 X 2
+
+W1 = torch.randn(size = (context_length * embed_size,n_hidden), generator=g) # 6X100
+b1 = torch.randn(size = (n_hidden,), generator=g) # 100
+
+W2 = torch.randn(size = (n_hidden, vocab_size), generator=g) #100X30
+b2 = torch.rand(size = (vocab_size,), generator=g) #30
+
+parameters = [C, W1, b1, W2, b2]
+# collect all the parameters
+for p in parameters:
+    p.requires_grad = True
+
+print("Number of parameters:", sum(p.nelement() for p in parameters))
+```
+
+Train
+```{python}
+n_iters = 100000
+lossi = []
+for i in range(n_iters):
+    
+    # construct minibatch by sampling indices from training dataset
+    ix = torch.randint(0, xstr.shape[0], (min_batch_size,), generator=g)
+    
+    # forward pass
+    xemb = C[xstr[ix]].view(min_batch_size, context_length*embed_size)
+    xh = (xemb @ W1 + b1).tanh() 
+    logits = xh @ W2 + b2 
+    loss = F.cross_entropy(logits, ystr[ix])
+
+    if i%10000 == 0:
+        print(f"Loss at iteration {i}:{loss.item()}")
+    
+    # Backward pass
+    for p in parameters:
+        p.grad = None
+    loss.backward()
+    # Update parameters
+    if i < 10000:
+        lr = learning_rate
+    elif 10000 <= i < 50000:
+        lr = learning_rate/10
+    else:
+        lr = learning_rate/100
+    for p in parameters:
+        p.data += -lr*p.grad
+
+    # track statistics
+    lossi.append(loss.item())
+print(f"{loss.item()}")
+
+#The above loss is just for the minibatch
+#Calculating loss for the entire training data
+xemb = C[xstr].view(-1, context_length*embed_size) # n_examplesX6
+xh = (xemb @ W1 + b1).tanh() # n_examplesX100
+logits = xh @ W2 + b2 # n_examplesXvocab_size
+loss = F.cross_entropy(logits, ystr)
+print("Training loss:", loss.item())
+
+# Calculate loss for the dev data
+xemb = C[xsdev].view(-1, context_length*embed_size) # n_examplesX6
+xh = (xemb @ W1 + b1).tanh() # n_examplesX100
+logits = xh @ W2 + b2 # n_examplesXvocab_size
+loss = F.cross_entropy(logits, ysdev)
+print("Validation loss:", loss.item())
+```
+
+The training and dev losses are now 2.064 and 2.083 respectively after 100,000 steps.
+The losses have actually increased by increasing the context length. Therefore, context length is not likely a bottleneck in our model.
+
+
+```{python}
+plt.figure()
+plt.plot(np.arange(n_iters), lossi)
+plt.xlabel("iteration")
+plt.ylabel("loss")
+
+# It can also be useful to plot logloss instead of loss
+plt.figure()
+plt.plot(np.arange(n_iters), np.log10(lossi))
+plt.xlabel("iteration")
+plt.ylabel("Log loss")
 ```
 
 
@@ -577,35 +722,26 @@ plt.ylabel("loss")
 
 ```{python}
 start_char = "*"
+end_char = "*"
 g = torch.Generator().manual_seed(123434)
-
+start_ind = stoi[start_char]
 for _ in range(20):
-    chs = [ch for ch in start_char*context_length]
-    #print(chs)
-    all_chars = chs
-    nump = 1
+    context = [start_ind]*context_length
+    all_chars = [start_char]*context_length
     while True:  
-        #print(chs)
-        xp = []
-        xp.append([stoi[ch] for ch in chs])
-        #print(xs)
-        xembp = C[xp] # 1X3X2
-        xembp = xembp.view(nump, -1) #1X6
-        xlp = xembp @ W1 + b1 
-        xhp = xlp.tanh() # 1X100
-        logitsp = xhp @ W2 + b2 #1X30
-        countsp = logitsp.exp()
-        probsp = countsp / countsp.sum(dim = 1, keepdim = True) #1X30
-        ind = torch.multinomial(probsp[0], num_samples = 1, replacement = True, generator = g)
-        #print(ind)
+        # Now context contains the three character indices for our example
+        xembp = C[torch.tensor(context)].view(1, -1) # Want to generate just one character at a time.
+        xhp = (xembp @ W1 + b1).tanh() 
+        logitsp = xhp @ W2 + b2 
+        # Directly use the softmax function to calculate probabilites from logits
+        probsp = F.softmax(logitsp, dim = 1)
+        ind = torch.multinomial(probsp, num_samples = 1, replacement = True, generator = g)
         ch = itos[ind.item()]
-        #print(ch)
-        if (ch == "*"):
+        if (ch == end_char):
             all_chars.append(ch)
             break
         else:   
             all_chars.append(ch)
-            chs = all_chars[-context_length:]
-            #print(chs)
+            context = context[1:]+[ind.item()]
     print("".join(all_chars))
 ```

@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.6.40">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Shefali Lathwal">
+<meta name="dcterms.date" content="2025-06-12">
+
+<title>Developing a character-prediction n-gram model using MLP - version 2</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="character_level_ngram_model_v2_files/libs/clipboard/clipboard.min.js"></script>
+<script src="character_level_ngram_model_v2_files/libs/quarto-html/quarto.js"></script>
+<script src="character_level_ngram_model_v2_files/libs/quarto-html/popper.min.js"></script>
+<script src="character_level_ngram_model_v2_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="character_level_ngram_model_v2_files/libs/quarto-html/anchor.min.js"></script>
+<link href="character_level_ngram_model_v2_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="character_level_ngram_model_v2_files/libs/quarto-html/quarto-syntax-highlighting-549806ee2085284f45b00abea8c6df48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="character_level_ngram_model_v2_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="character_level_ngram_model_v2_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="character_level_ngram_model_v2_files/libs/bootstrap/bootstrap-973236bd072d72a04ee9cd82dcc9cb29.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#build-the-training-dataset" id="toc-build-the-training-dataset" class="nav-link active" data-scroll-target="#build-the-training-dataset">Build the training dataset</a>
+  <ul class="collapse">
+  <li><a href="#set-some-parameters" id="toc-set-some-parameters" class="nav-link" data-scroll-target="#set-some-parameters">Set some parameters</a></li>
+  </ul></li>
+  <li><a href="#train-in-minibatches-instead-of-the-whole-dataset" id="toc-train-in-minibatches-instead-of-the-whole-dataset" class="nav-link" data-scroll-target="#train-in-minibatches-instead-of-the-whole-dataset">Train in minibatches instead of the whole dataset</a></li>
+  <li><a href="#tuning-the-learning-rate" id="toc-tuning-the-learning-rate" class="nav-link" data-scroll-target="#tuning-the-learning-rate">Tuning the learning rate</a></li>
+  <li><a href="#split-the-data-into-training-validation-and-test-sets" id="toc-split-the-data-into-training-validation-and-test-sets" class="nav-link" data-scroll-target="#split-the-data-into-training-validation-and-test-sets">Split the data into training, validation and test sets</a></li>
+  <li><a href="#experiment---increase-the-parameters-in-the-hidden-layer" id="toc-experiment---increase-the-parameters-in-the-hidden-layer" class="nav-link" data-scroll-target="#experiment---increase-the-parameters-in-the-hidden-layer">Experiment - increase the parameters in the hidden layer</a></li>
+  <li><a href="#visualize-the-2-d-embedding-vectors" id="toc-visualize-the-2-d-embedding-vectors" class="nav-link" data-scroll-target="#visualize-the-2-d-embedding-vectors">Visualize the 2-D embedding vectors</a></li>
+  <li><a href="#experiment---increase-the-embedding-vector-size-to-10" id="toc-experiment---increase-the-embedding-vector-size-to-10" class="nav-link" data-scroll-target="#experiment---increase-the-embedding-vector-size-to-10">Experiment - Increase the embedding vector size to 10</a></li>
+  <li><a href="#sample-from-the-model" id="toc-sample-from-the-model" class="nav-link" data-scroll-target="#sample-from-the-model">Sample from the model</a></li>
+  <li><a href="#experiment-increase-the-context-length-to-6" id="toc-experiment-increase-the-context-length-to-6" class="nav-link" data-scroll-target="#experiment-increase-the-context-length-to-6">Experiment = Increase the context length to 6</a></li>
+  <li><a href="#sample-from-the-model-1" id="toc-sample-from-the-model-1" class="nav-link" data-scroll-target="#sample-from-the-model-1">Sample from the model</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Developing a character-prediction n-gram model using MLP - version 2</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Shefali Lathwal </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">June 12, 2025</p>
+    </div>
+  </div>
+  
+    <div>
+    <div class="quarto-title-meta-heading">Modified</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date-modified">June 12, 2025</p>
+    </div>
+  </div>
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>In this notebook, we are going to improve on the character-level n-gram model that we built in version 1. In particular we are going to do the following: - Implement gradient descent on a mini-batch for the data instead of the whole dataset at once. - Split the data into training, validation and test sets - Visualize the final embedding vectors predicted by the model - Compare performance of the model from v1</p>
+<section id="build-the-training-dataset" class="level1">
+<h1>Build the training dataset</h1>
+<p>Just like the Bengio et al.&nbsp;paper, let’s build a training dataset with three characters in context.</p>
+<ul>
+<li><p>Remember that we have “.” on our training data itself. Therefore we are using a * to denote the beginning and end of words.</p></li>
+<li><p>Our context is not a single character but a sequence of three characters. So each row in our xs training set would ba a list of three indices, and ys would be a single index</p></li>
+</ul>
+<div id="a1801e61" class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(<span class="st">"data/names.txt"</span>) <span class="im">as</span> <span class="bu">file</span>:</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    text <span class="op">=</span> <span class="bu">file</span>.read().splitlines()</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">file</span>.close()</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>words <span class="op">=</span> text</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">len</span>(words)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Create the lookup for character indices including a start and end of line character to the all_chars list</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>all_chars <span class="op">=</span> <span class="bu">sorted</span>(<span class="bu">list</span>(<span class="bu">set</span>(<span class="st">""</span>.join(words)))<span class="op">+</span>[<span class="st">"*"</span>])</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>stoi <span class="op">=</span> {s:i <span class="cf">for</span> i, s <span class="kw">in</span> <span class="bu">enumerate</span>(all_chars)}</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>itos  <span class="op">=</span> {i:s <span class="cf">for</span> s, i <span class="kw">in</span> stoi.items()}</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>stoi, itos</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>({' ': 0,
+  '*': 1,
+  '-': 2,
+  '.': 3,
+  'a': 4,
+  'b': 5,
+  'c': 6,
+  'd': 7,
+  'e': 8,
+  'f': 9,
+  'g': 10,
+  'h': 11,
+  'i': 12,
+  'j': 13,
+  'k': 14,
+  'l': 15,
+  'm': 16,
+  'n': 17,
+  'o': 18,
+  'p': 19,
+  'q': 20,
+  'r': 21,
+  's': 22,
+  't': 23,
+  'u': 24,
+  'v': 25,
+  'w': 26,
+  'x': 27,
+  'y': 28,
+  'z': 29},
+ {0: ' ',
+  1: '*',
+  2: '-',
+  3: '.',
+  4: 'a',
+  5: 'b',
+  6: 'c',
+  7: 'd',
+  8: 'e',
+  9: 'f',
+  10: 'g',
+  11: 'h',
+  12: 'i',
+  13: 'j',
+  14: 'k',
+  15: 'l',
+  16: 'm',
+  17: 'n',
+  18: 'o',
+  19: 'p',
+  20: 'q',
+  21: 'r',
+  22: 's',
+  23: 't',
+  24: 'u',
+  25: 'v',
+  26: 'w',
+  27: 'x',
+  28: 'y',
+  29: 'z'})</code></pre>
+</div>
+</div>
+<section id="set-some-parameters" class="level2">
+<h2 class="anchored" data-anchor-id="set-some-parameters">Set some parameters</h2>
+<div id="1491bc2f" class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>vocab_size <span class="op">=</span> <span class="bu">len</span>(all_chars) <span class="co"># vocabulary size for characters</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>context_length <span class="op">=</span> <span class="dv">3</span> <span class="co"># no of characters in context for prediction</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># embedding vector length for each character</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>embed_size <span class="op">=</span> <span class="dv">2</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>n_hidden <span class="op">=</span> <span class="dv">100</span> <span class="co"># number of neurons in the hidden layer</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># min_batch_size = 32 # currently being set later in the notebook, move here.</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="8fd742b9" class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch.nn.functional <span class="im">as</span> F</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>xs, ys <span class="op">=</span> [], []</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> word <span class="kw">in</span> words:</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    chs <span class="op">=</span> <span class="st">"*"</span><span class="op">*</span>context_length<span class="op">+</span>word<span class="op">+</span><span class="st">"*"</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">#print(word)</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> ind <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(chs) <span class="op">-</span> context_length):</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        ch1 <span class="op">=</span> chs[ind:ind<span class="op">+</span>context_length]</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        ch2 <span class="op">=</span> chs[ind<span class="op">+</span>context_length]</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">#print(f"{ch1} ----&gt; {ch2}")</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        xs.append([stoi[ch] <span class="cf">for</span> ch <span class="kw">in</span> ch1])</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        ys.append(stoi[ch2])</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>xs <span class="op">=</span> torch.tensor(xs) <span class="co"># 10X3</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>ys <span class="op">=</span> torch.tensor(ys) <span class="co"># 10</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>num <span class="op">=</span> <span class="bu">len</span>(ys)</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"number of examples:"</span>, num)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>number of examples: 505692</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="train-in-minibatches-instead-of-the-whole-dataset" class="level1">
+<h1>Train in minibatches instead of the whole dataset</h1>
+<p>We will sample a minibatch from the data instead of taking the whole data at every iteration of the gradient descent algorithm.</p>
+<p>Initialize</p>
+<div id="3027cd32" class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">4524757136458</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> torch.randn(size <span class="op">=</span> (vocab_size, embed_size), generator<span class="op">=</span>g) <span class="co"># 30 X 2</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>W1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (context_length <span class="op">*</span> embed_size,n_hidden), generator<span class="op">=</span>g) <span class="co"># 6X100</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>b1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden,), generator<span class="op">=</span>g) <span class="co"># 100</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>W2 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden, vocab_size), generator<span class="op">=</span>g) <span class="co">#100X30</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>b2 <span class="op">=</span> torch.rand(size <span class="op">=</span> (vocab_size,), generator<span class="op">=</span>g) <span class="co">#30</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>parameters <span class="op">=</span> [C, W1, b1, W2, b2]</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co"># collect all the parameters</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    p.requires_grad <span class="op">=</span> <span class="va">True</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Train</p>
+<div id="642096d2" class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>n_iters <span class="op">=</span> <span class="dv">1000</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>min_batch_size <span class="op">=</span> <span class="dv">32</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(n_iters):</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># construct minibatch by sampling indices from training dataset</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    ix <span class="op">=</span> torch.randint(<span class="dv">0</span>, num, (min_batch_size,), generator<span class="op">=</span>g)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># forward pass</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    xemb <span class="op">=</span> C[xs[ix]].view(min_batch_size, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> F.cross_entropy(logits, ys[ix])</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">#print(f"{loss.item()}")</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Backward pass</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        p.grad <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    loss.backward()</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update parameters</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        p.data <span class="op">+=</span> <span class="op">-</span><span class="fl">0.1</span><span class="op">*</span>p.grad</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(loss.item())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>2.728335380554199</code></pre>
+</div>
+</div>
+<p>The above loss is just for the minibatch Calculating loss for the entire data</p>
+<div id="28114ce7" class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>xemb <span class="op">=</span> C[xs].view(<span class="op">-</span><span class="dv">1</span>, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> F.cross_entropy(logits, ys)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(loss.item())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>2.5501720905303955</code></pre>
+</div>
+</div>
+<ul>
+<li><p>Training loss after 1000 iterations with a learning rate of 0.1 for the entire dataset, where gradient descent is run on the entire dataset = 2.3811113834381104</p></li>
+<li><p>Training loss after 1000 iterations with a learning rate of 0.1 for the entire dataset, where the gradient descent is run with mini-batch size of 32 = 2.5501720905303955, but the training is really fast, so we can go for much longer iterations.</p></li>
+</ul>
+</section>
+<section id="tuning-the-learning-rate" class="level1">
+<h1>Tuning the learning rate</h1>
+<ul>
+<li>Find a range empirically that works well. For example from 0.001 to 1. Find this range by just manually setting the rate for a few iterations and finding what the upper and lower limits are likely to be.</li>
+<li>Run iterations slowly increasing the learning rate with each iteration over the range</li>
+<li>Look at where the loss starts to increase</li>
+<li>It will be a reasonable estimation of the learning rate.</li>
+</ul>
+<p>Initialize</p>
+<div id="cb3085c8" class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">4524757136458</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> torch.randn(size <span class="op">=</span> (vocab_size, embed_size), generator<span class="op">=</span>g) <span class="co"># 30 X 2</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>W1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (context_length <span class="op">*</span> embed_size,n_hidden), generator<span class="op">=</span>g) <span class="co"># 6X100</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>b1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden,), generator<span class="op">=</span>g) <span class="co"># 100</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>W2 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden, vocab_size), generator<span class="op">=</span>g) <span class="co">#100X30</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>b2 <span class="op">=</span> torch.rand(size <span class="op">=</span> (vocab_size,), generator<span class="op">=</span>g) <span class="co">#30</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>parameters <span class="op">=</span> [C, W1, b1, W2, b2]</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="co"># collect all the parameters</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    p.requires_grad <span class="op">=</span> <span class="va">True</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Define a range to</p>
+<div id="997de159" class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>lre <span class="op">=</span> torch.linspace(<span class="op">-</span><span class="dv">3</span>, <span class="dv">0</span>, <span class="dv">1000</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>lri <span class="op">=</span> <span class="dv">10</span><span class="op">**</span>lre</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>lri[:<span class="dv">10</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="8">
+<pre><code>tensor([0.0010, 0.0010, 0.0010, 0.0010, 0.0010, 0.0010, 0.0010, 0.0010, 0.0011,
+        0.0011])</code></pre>
+</div>
+</div>
+<p>Train</p>
+<div id="b64f1184" class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>n_iters <span class="op">=</span> <span class="dv">1000</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>lossi <span class="op">=</span> []</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n_iters):</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># construct minibatch by sampling indices from training dataset</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    ix <span class="op">=</span> torch.randint(<span class="dv">0</span>, num, (min_batch_size,), generator<span class="op">=</span>g)</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># forward pass</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    xemb <span class="op">=</span> C[xs[ix]].view(min_batch_size, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> F.cross_entropy(logits, ys[ix])</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">#print(f"{loss.item()}")</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Backward pass</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>        p.grad <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>    loss.backward()</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>    lossi.append(loss.item())</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update parameters</span></span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>    lr <span class="op">=</span> lri[i]</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>        p.data <span class="op">+=</span> <span class="op">-</span>lr<span class="op">*</span>p.grad</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a><span class="co">#print(loss.item())</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Plot the loss with the learning rate</p>
+<div id="7f869b92" class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>plt.plot(lre, lossi)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"loss"</span>)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"learning rate exponent"</span>)</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="co"># index for min loss</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>ind_min_loss <span class="op">=</span> np.argmin(lossi)</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>ind_min_loss</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>learning_rate <span class="op">=</span> lri[ind_min_loss]</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>learning_rate</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="10">
+<pre><code>tensor(0.1800)</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v2_files/figure-html/cell-11-output-2.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The learning rate has come out to be 0.18</p>
+<p>Initialize</p>
+<div id="9eee8f16" class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">4524757136458</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> torch.randn(size <span class="op">=</span> (vocab_size, embed_size), generator<span class="op">=</span>g) <span class="co"># 30 X 2</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>W1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (context_length <span class="op">*</span> embed_size,n_hidden), generator<span class="op">=</span>g) <span class="co"># 6X100</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>b1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden,), generator<span class="op">=</span>g) <span class="co"># 100</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>W2 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden, vocab_size), generator<span class="op">=</span>g) <span class="co">#100X30</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>b2 <span class="op">=</span> torch.rand(size <span class="op">=</span> (vocab_size,), generator<span class="op">=</span>g) <span class="co">#30</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>parameters <span class="op">=</span> [C, W1, b1, W2, b2]</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a><span class="co"># collect all the parameters</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>    p.requires_grad <span class="op">=</span> <span class="va">True</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Train</p>
+<div id="596610a7" class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>n_iters <span class="op">=</span> <span class="dv">100000</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n_iters):</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    <span class="co"># construct minibatch by sampling indices from training dataset</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>    ix <span class="op">=</span> torch.randint(<span class="dv">0</span>, num, (min_batch_size,), generator<span class="op">=</span>g)</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>    <span class="co"># forward pass</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>    xemb <span class="op">=</span> C[xs[ix]].view(min_batch_size, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>    xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>    logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> F.cross_entropy(logits, ys[ix])</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i<span class="op">%</span><span class="dv">10000</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Loss at iteration </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">:</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Backward pass</span></span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>        p.grad <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>    loss.backward()</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update parameters</span></span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">&lt;</span> <span class="dv">10000</span>:</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate</span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> <span class="dv">10000</span> <span class="op">&lt;=</span> i <span class="op">&lt;</span> <span class="dv">50000</span>:</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate<span class="op">/</span><span class="dv">10</span></span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate<span class="op">/</span><span class="dv">100</span></span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>        p.data <span class="op">+=</span> <span class="op">-</span>lr<span class="op">*</span>p.grad</span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a><span class="co">#The above loss is just for the minibatch</span></span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a><span class="co">#Calculating loss for the entire data</span></span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a>xemb <span class="op">=</span> C[xs].view(<span class="op">-</span><span class="dv">1</span>, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a>xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> F.cross_entropy(logits, ys)</span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Loss for the whole dataset:"</span>, loss.item())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Loss at iteration 0:15.40669059753418
+Loss at iteration 10000:1.945151448249817
+Loss at iteration 20000:2.3145976066589355
+Loss at iteration 30000:1.8188059329986572
+Loss at iteration 40000:2.3086163997650146
+Loss at iteration 50000:2.2232980728149414
+Loss at iteration 60000:2.2149975299835205
+Loss at iteration 70000:2.313100576400757
+Loss at iteration 80000:2.1777288913726807
+Loss at iteration 90000:2.0852653980255127
+1.7409486770629883
+Loss for the whole dataset: 2.1112160682678223</code></pre>
+</div>
+</div>
+<p>10000 iterations is not enough to completely train the model. It needs more iterations. Also, I have to reduce the learning rate after 10,000 iterations fo rthe model to continue converging smoothly.</p>
+<p>The above loss is on the entire training dataset and we may be overfitting the training data. Therefore, to get a reasonable assessment of the loss of the model on unseen data, we should split our data into training, dev and test sets.</p>
+</section>
+<section id="split-the-data-into-training-validation-and-test-sets" class="level1">
+<h1>Split the data into training, validation and test sets</h1>
+<ul>
+<li><p>Define a function to build the X and Y tensors from the words list.</p></li>
+<li><p>Define two integers, n1 and n2 at 80% of the word list and 90% of the word list.</p></li>
+<li><p>Shuffle the words and extract data upto n1, from n1 to n2, and from n2 to end. These will become the training, dev and test datasets.</p></li>
+</ul>
+<div id="d540728b" class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> random</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> build_dataset(words, context_length <span class="op">=</span> context_length):</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    xs, ys <span class="op">=</span> [], []</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> word <span class="kw">in</span> words:</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>        chs <span class="op">=</span> <span class="st">"*"</span><span class="op">*</span>context_length<span class="op">+</span>word<span class="op">+</span><span class="st">"*"</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">#print(word)</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> ind <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(chs) <span class="op">-</span> context_length):</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>            ch1 <span class="op">=</span> chs[ind:ind<span class="op">+</span>context_length]</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>            ch2 <span class="op">=</span> chs[ind<span class="op">+</span>context_length]</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>            <span class="co">#print(f"{ch1} ----&gt; {ch2}")</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>            xs.append([stoi[ch] <span class="cf">for</span> ch <span class="kw">in</span> ch1])</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>            ys.append(stoi[ch2])</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>    xs <span class="op">=</span> torch.tensor(xs) <span class="co"># 10X3</span></span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>    ys <span class="op">=</span> torch.tensor(ys) <span class="co"># 10</span></span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(xs.shape, ys.shape)</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> xs, ys</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>random.shuffle(words)</span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a>n1 <span class="op">=</span> <span class="bu">int</span>(<span class="fl">0.8</span><span class="op">*</span><span class="bu">len</span>(words))</span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>n2 <span class="op">=</span> <span class="bu">int</span>(<span class="fl">0.9</span><span class="op">*</span><span class="bu">len</span>(words))</span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>n1, n2</span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-24"><a href="#cb20-24" aria-hidden="true" tabindex="-1"></a>xstr, ystr <span class="op">=</span> build_dataset(words[:n1])</span>
+<span id="cb20-25"><a href="#cb20-25" aria-hidden="true" tabindex="-1"></a>xsdev, ysdev <span class="op">=</span> build_dataset(words[n1:n2])</span>
+<span id="cb20-26"><a href="#cb20-26" aria-hidden="true" tabindex="-1"></a>xstest, ystest <span class="op">=</span> build_dataset(words[n2:])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>torch.Size([404711, 3]) torch.Size([404711])
+torch.Size([50371, 3]) torch.Size([50371])
+torch.Size([50610, 3]) torch.Size([50610])</code></pre>
+</div>
+</div>
+<p>Initialize</p>
+<div id="24a125b7" class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">4524757136458</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> torch.randn(size <span class="op">=</span> (vocab_size, embed_size), generator<span class="op">=</span>g) <span class="co"># 30 X 2</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>W1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (context_length <span class="op">*</span> embed_size,n_hidden), generator<span class="op">=</span>g) <span class="co"># 6X100</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>b1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden,), generator<span class="op">=</span>g) <span class="co"># 100</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>W2 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden, vocab_size), generator<span class="op">=</span>g) <span class="co">#100X30</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>b2 <span class="op">=</span> torch.rand(size <span class="op">=</span> (vocab_size,), generator<span class="op">=</span>g) <span class="co">#30</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>parameters <span class="op">=</span> [C, W1, b1, W2, b2]</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a><span class="co"># collect all the parameters</span></span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>    p.requires_grad <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Number of parameters:"</span>, <span class="bu">sum</span>(p.nelement() <span class="cf">for</span> p <span class="kw">in</span> parameters))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Number of parameters: 3790</code></pre>
+</div>
+</div>
+<p>Train</p>
+<div id="395eb8c7" class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>n_iters <span class="op">=</span> <span class="dv">100000</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n_iters):</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    <span class="co"># construct minibatch by sampling indices from training dataset</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>    ix <span class="op">=</span> torch.randint(<span class="dv">0</span>, xstr.shape[<span class="dv">0</span>], (min_batch_size,), generator<span class="op">=</span>g)</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>    <span class="co"># forward pass</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>    xemb <span class="op">=</span> C[xstr[ix]].view(min_batch_size, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>    xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>    logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> F.cross_entropy(logits, ystr[ix])</span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i<span class="op">%</span><span class="dv">10000</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Loss at iteration </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">:</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Backward pass</span></span>
+<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>        p.grad <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a>    loss.backward()</span>
+<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update parameters</span></span>
+<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">&lt;</span> <span class="dv">10000</span>:</span>
+<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate</span>
+<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> <span class="dv">10000</span> <span class="op">&lt;=</span> i <span class="op">&lt;</span> <span class="dv">50000</span>:</span>
+<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate<span class="op">/</span><span class="dv">10</span></span>
+<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate<span class="op">/</span><span class="dv">100</span></span>
+<span id="cb24-27"><a href="#cb24-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb24-28"><a href="#cb24-28" aria-hidden="true" tabindex="-1"></a>        p.data <span class="op">+=</span> <span class="op">-</span>lr<span class="op">*</span>p.grad</span>
+<span id="cb24-29"><a href="#cb24-29" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb24-30"><a href="#cb24-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-31"><a href="#cb24-31" aria-hidden="true" tabindex="-1"></a><span class="co">#The above loss is just for the minibatch</span></span>
+<span id="cb24-32"><a href="#cb24-32" aria-hidden="true" tabindex="-1"></a><span class="co">#Calculating loss for the entire training data</span></span>
+<span id="cb24-33"><a href="#cb24-33" aria-hidden="true" tabindex="-1"></a>xemb <span class="op">=</span> C[xstr].view(<span class="op">-</span><span class="dv">1</span>, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb24-34"><a href="#cb24-34" aria-hidden="true" tabindex="-1"></a>xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb24-35"><a href="#cb24-35" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb24-36"><a href="#cb24-36" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> F.cross_entropy(logits, ystr)</span>
+<span id="cb24-37"><a href="#cb24-37" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Training loss:"</span>, loss.item())</span>
+<span id="cb24-38"><a href="#cb24-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-39"><a href="#cb24-39" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate loss for the dev data</span></span>
+<span id="cb24-40"><a href="#cb24-40" aria-hidden="true" tabindex="-1"></a>xemb <span class="op">=</span> C[xsdev].view(<span class="op">-</span><span class="dv">1</span>, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb24-41"><a href="#cb24-41" aria-hidden="true" tabindex="-1"></a>xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb24-42"><a href="#cb24-42" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb24-43"><a href="#cb24-43" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> F.cross_entropy(logits, ysdev)</span>
+<span id="cb24-44"><a href="#cb24-44" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Validation loss:"</span>, loss.item())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Loss at iteration 0:15.612857818603516
+Loss at iteration 10000:1.9876376390457153
+Loss at iteration 20000:2.275438070297241
+Loss at iteration 30000:2.3958239555358887
+Loss at iteration 40000:2.202789545059204
+Loss at iteration 50000:2.134326219558716
+Loss at iteration 60000:2.078400135040283
+Loss at iteration 70000:1.8983827829360962
+Loss at iteration 80000:1.6612863540649414
+Loss at iteration 90000:1.851075291633606
+2.209160089492798
+Training loss: 2.1094937324523926
+Validation loss: 2.105466604232788</code></pre>
+</div>
+</div>
+<p>The training and validation loss are quite close to each other, being 2.11 and 2.12, respectively after 100,000 iterations with the above learning rates.</p>
+<p>When training loss and validation loss are very similar, it indicates that our neural network is not overfitting on the training data, and there should be scope for improving it. Some strategies that we can use:</p>
+<ol type="1">
+<li>Increase the number of parameters in the neural network by increasing the number of neurons in the hidden layer.</li>
+<li>Increase the embed_size to capture more information for each character</li>
+<li>We can also take more than three characters in context</li>
+</ol>
+</section>
+<section id="experiment---increase-the-parameters-in-the-hidden-layer" class="level1">
+<h1>Experiment - increase the parameters in the hidden layer</h1>
+<p>Initialize</p>
+<div id="6d40566f" class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>n_hidden <span class="op">=</span> <span class="dv">300</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">4524757136458</span>)</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> torch.randn(size <span class="op">=</span> (vocab_size, embed_size), generator<span class="op">=</span>g) <span class="co"># 30 X 2</span></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>W1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (context_length <span class="op">*</span> embed_size,n_hidden), generator<span class="op">=</span>g) <span class="co"># 6X100</span></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>b1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden,), generator<span class="op">=</span>g) <span class="co"># 100</span></span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a>W2 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden, vocab_size), generator<span class="op">=</span>g) <span class="co">#100X30</span></span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>b2 <span class="op">=</span> torch.rand(size <span class="op">=</span> (vocab_size,), generator<span class="op">=</span>g) <span class="co">#30</span></span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>parameters <span class="op">=</span> [C, W1, b1, W2, b2]</span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a><span class="co"># collect all the parameters</span></span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a>    p.requires_grad <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Number of parameters:"</span>, <span class="bu">sum</span>(p.nelement() <span class="cf">for</span> p <span class="kw">in</span> parameters))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Number of parameters: 11190</code></pre>
+</div>
+</div>
+<p>Train</p>
+<div id="776cd124" class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>n_iters <span class="op">=</span> <span class="dv">100000</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>lossi <span class="op">=</span> []</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n_iters):</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># construct minibatch by sampling indices from training dataset</span></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>    ix <span class="op">=</span> torch.randint(<span class="dv">0</span>, xstr.shape[<span class="dv">0</span>], (min_batch_size,), generator<span class="op">=</span>g)</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># forward pass</span></span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>    xemb <span class="op">=</span> C[xstr[ix]].view(min_batch_size, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>    xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>    logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> F.cross_entropy(logits, ystr[ix])</span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i<span class="op">%</span><span class="dv">10000</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Loss at iteration </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">:</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Backward pass</span></span>
+<span id="cb28-18"><a href="#cb28-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb28-19"><a href="#cb28-19" aria-hidden="true" tabindex="-1"></a>        p.grad <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb28-20"><a href="#cb28-20" aria-hidden="true" tabindex="-1"></a>    loss.backward()</span>
+<span id="cb28-21"><a href="#cb28-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update parameters</span></span>
+<span id="cb28-22"><a href="#cb28-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">&lt;</span> <span class="dv">10000</span>:</span>
+<span id="cb28-23"><a href="#cb28-23" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate</span>
+<span id="cb28-24"><a href="#cb28-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> <span class="dv">10000</span> <span class="op">&lt;=</span> i <span class="op">&lt;</span> <span class="dv">50000</span>:</span>
+<span id="cb28-25"><a href="#cb28-25" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate<span class="op">/</span><span class="dv">10</span></span>
+<span id="cb28-26"><a href="#cb28-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb28-27"><a href="#cb28-27" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate<span class="op">/</span><span class="dv">100</span></span>
+<span id="cb28-28"><a href="#cb28-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb28-29"><a href="#cb28-29" aria-hidden="true" tabindex="-1"></a>        p.data <span class="op">+=</span> <span class="op">-</span>lr<span class="op">*</span>p.grad</span>
+<span id="cb28-30"><a href="#cb28-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-31"><a href="#cb28-31" aria-hidden="true" tabindex="-1"></a>    <span class="co"># track statistics</span></span>
+<span id="cb28-32"><a href="#cb28-32" aria-hidden="true" tabindex="-1"></a>    lossi.append(loss.item())</span>
+<span id="cb28-33"><a href="#cb28-33" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb28-34"><a href="#cb28-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-35"><a href="#cb28-35" aria-hidden="true" tabindex="-1"></a><span class="co">#The above loss is just for the minibatch</span></span>
+<span id="cb28-36"><a href="#cb28-36" aria-hidden="true" tabindex="-1"></a><span class="co">#Calculating loss for the entire training data</span></span>
+<span id="cb28-37"><a href="#cb28-37" aria-hidden="true" tabindex="-1"></a>xemb <span class="op">=</span> C[xstr].view(<span class="op">-</span><span class="dv">1</span>, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb28-38"><a href="#cb28-38" aria-hidden="true" tabindex="-1"></a>xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb28-39"><a href="#cb28-39" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb28-40"><a href="#cb28-40" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> F.cross_entropy(logits, ystr)</span>
+<span id="cb28-41"><a href="#cb28-41" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Training loss:"</span>, loss.item())</span>
+<span id="cb28-42"><a href="#cb28-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-43"><a href="#cb28-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate loss for the dev data</span></span>
+<span id="cb28-44"><a href="#cb28-44" aria-hidden="true" tabindex="-1"></a>xemb <span class="op">=</span> C[xsdev].view(<span class="op">-</span><span class="dv">1</span>, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb28-45"><a href="#cb28-45" aria-hidden="true" tabindex="-1"></a>xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb28-46"><a href="#cb28-46" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb28-47"><a href="#cb28-47" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> F.cross_entropy(logits, ysdev)</span>
+<span id="cb28-48"><a href="#cb28-48" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Validation loss:"</span>, loss.item())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Loss at iteration 0:28.60953140258789
+Loss at iteration 10000:2.6490871906280518
+Loss at iteration 20000:1.8674166202545166
+Loss at iteration 30000:2.413022041320801
+Loss at iteration 40000:2.473870038986206
+Loss at iteration 50000:1.7446247339248657
+Loss at iteration 60000:1.949571967124939
+Loss at iteration 70000:1.946211814880371
+Loss at iteration 80000:1.7808773517608643
+Loss at iteration 90000:2.0130503177642822
+1.582410454750061
+Training loss: 2.085326671600342
+Validation loss: 2.083481788635254</code></pre>
+</div>
+</div>
+<p>The training and dev losses are now 2.09 and 2.10 respectively after 100,000 steps.</p>
+<div id="37f2d8d5" class="cell" data-execution_count="18">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>plt.plot(np.arange(n_iters), lossi)</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"iteration"</span>)</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"loss"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="18">
+<pre><code>Text(0, 0.5, 'loss')</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v2_files/figure-html/cell-19-output-2.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>One of the reasons why the line is thick is because our batch size is quite small at 32. Therefore, there is a lot of jitter in the loss value.</p>
+</section>
+<section id="visualize-the-2-d-embedding-vectors" class="level1">
+<h1>Visualize the 2-D embedding vectors</h1>
+<div id="fb211586" class="cell" data-execution_count="19">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>embed_1 <span class="op">=</span> C[:, <span class="dv">0</span>].detach().numpy() <span class="co"># embedding in 1st dimension</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>embed_2 <span class="op">=</span> C[:,<span class="dv">1</span>].detach().numpy() <span class="co"># embedding in 2nd dimension</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="co"># plt.plot(C[:,0], C[:,1]) # This line creates an error</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>plt.scatter(embed_1, embed_2, s <span class="op">=</span> <span class="dv">200</span>)</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(C.shape[<span class="dv">0</span>]):</span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">#print(i)</span></span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>    plt.text(embed_1[i], embed_2[i],s <span class="op">=</span> itos[i], ha <span class="op">=</span> <span class="st">"center"</span>, va <span class="op">=</span> <span class="st">"center"</span>, color <span class="op">=</span> <span class="st">"white"</span>)</span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a>plt.grid(<span class="st">"minor"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v2_files/figure-html/cell-20-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>We can see that the vowels cluster together on the center right.</p>
+<ul>
+<li>The start and end character clusters with the empty character.</li>
+</ul>
+</section>
+<section id="experiment---increase-the-embedding-vector-size-to-10" class="level1">
+<h1>Experiment - Increase the embedding vector size to 10</h1>
+<p>Initialize</p>
+<div id="05bf7a1c" class="cell" data-execution_count="20">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>n_hidden <span class="op">=</span> <span class="dv">300</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>embed_size <span class="op">=</span> <span class="dv">10</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">4524757136458</span>)</span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> torch.randn(size <span class="op">=</span> (vocab_size, embed_size), generator<span class="op">=</span>g) <span class="co"># 30 X 2</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>W1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (context_length <span class="op">*</span> embed_size,n_hidden), generator<span class="op">=</span>g) <span class="co"># 6X100</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a>b1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden,), generator<span class="op">=</span>g) <span class="co"># 100</span></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a>W2 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden, vocab_size), generator<span class="op">=</span>g) <span class="co">#100X30</span></span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>b2 <span class="op">=</span> torch.rand(size <span class="op">=</span> (vocab_size,), generator<span class="op">=</span>g) <span class="co">#30</span></span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a>parameters <span class="op">=</span> [C, W1, b1, W2, b2]</span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a><span class="co"># collect all the parameters</span></span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a>    p.requires_grad <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Number of parameters:"</span>, <span class="bu">sum</span>(p.nelement() <span class="cf">for</span> p <span class="kw">in</span> parameters))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Number of parameters: 18630</code></pre>
+</div>
+</div>
+<p>Train</p>
+<div id="fdcb87ed" class="cell" data-execution_count="21">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>n_iters <span class="op">=</span> <span class="dv">100000</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>lossi <span class="op">=</span> []</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n_iters):</span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># construct minibatch by sampling indices from training dataset</span></span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a>    ix <span class="op">=</span> torch.randint(<span class="dv">0</span>, xstr.shape[<span class="dv">0</span>], (min_batch_size,), generator<span class="op">=</span>g)</span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># forward pass</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a>    xemb <span class="op">=</span> C[xstr[ix]].view(min_batch_size, context_length<span class="op">*</span>embed_size)</span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a>    xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() </span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a>    logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 </span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> F.cross_entropy(logits, ystr[ix])</span>
+<span id="cb35-13"><a href="#cb35-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-14"><a href="#cb35-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i<span class="op">%</span><span class="dv">10000</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb35-15"><a href="#cb35-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Loss at iteration </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">:</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb35-16"><a href="#cb35-16" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb35-17"><a href="#cb35-17" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Backward pass</span></span>
+<span id="cb35-18"><a href="#cb35-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb35-19"><a href="#cb35-19" aria-hidden="true" tabindex="-1"></a>        p.grad <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb35-20"><a href="#cb35-20" aria-hidden="true" tabindex="-1"></a>    loss.backward()</span>
+<span id="cb35-21"><a href="#cb35-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update parameters</span></span>
+<span id="cb35-22"><a href="#cb35-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">&lt;</span> <span class="dv">10000</span>:</span>
+<span id="cb35-23"><a href="#cb35-23" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate</span>
+<span id="cb35-24"><a href="#cb35-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> <span class="dv">10000</span> <span class="op">&lt;=</span> i <span class="op">&lt;</span> <span class="dv">50000</span>:</span>
+<span id="cb35-25"><a href="#cb35-25" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate<span class="op">/</span><span class="dv">10</span></span>
+<span id="cb35-26"><a href="#cb35-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb35-27"><a href="#cb35-27" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate<span class="op">/</span><span class="dv">100</span></span>
+<span id="cb35-28"><a href="#cb35-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb35-29"><a href="#cb35-29" aria-hidden="true" tabindex="-1"></a>        p.data <span class="op">+=</span> <span class="op">-</span>lr<span class="op">*</span>p.grad</span>
+<span id="cb35-30"><a href="#cb35-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-31"><a href="#cb35-31" aria-hidden="true" tabindex="-1"></a>    <span class="co"># track statistics</span></span>
+<span id="cb35-32"><a href="#cb35-32" aria-hidden="true" tabindex="-1"></a>    lossi.append(loss.item())</span>
+<span id="cb35-33"><a href="#cb35-33" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb35-34"><a href="#cb35-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-35"><a href="#cb35-35" aria-hidden="true" tabindex="-1"></a><span class="co">#The above loss is just for the minibatch</span></span>
+<span id="cb35-36"><a href="#cb35-36" aria-hidden="true" tabindex="-1"></a><span class="co">#Calculating loss for the entire training data</span></span>
+<span id="cb35-37"><a href="#cb35-37" aria-hidden="true" tabindex="-1"></a>xemb <span class="op">=</span> C[xstr].view(<span class="op">-</span><span class="dv">1</span>, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb35-38"><a href="#cb35-38" aria-hidden="true" tabindex="-1"></a>xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb35-39"><a href="#cb35-39" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb35-40"><a href="#cb35-40" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> F.cross_entropy(logits, ystr)</span>
+<span id="cb35-41"><a href="#cb35-41" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Training loss:"</span>, loss.item())</span>
+<span id="cb35-42"><a href="#cb35-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-43"><a href="#cb35-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate loss for the dev data</span></span>
+<span id="cb35-44"><a href="#cb35-44" aria-hidden="true" tabindex="-1"></a>xemb <span class="op">=</span> C[xsdev].view(<span class="op">-</span><span class="dv">1</span>, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb35-45"><a href="#cb35-45" aria-hidden="true" tabindex="-1"></a>xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb35-46"><a href="#cb35-46" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb35-47"><a href="#cb35-47" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> F.cross_entropy(logits, ysdev)</span>
+<span id="cb35-48"><a href="#cb35-48" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Validation loss:"</span>, loss.item())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Loss at iteration 0:31.608505249023438
+Loss at iteration 10000:2.695669174194336
+Loss at iteration 20000:2.0951366424560547
+Loss at iteration 30000:2.1647281646728516
+Loss at iteration 40000:2.392338752746582
+Loss at iteration 50000:2.2158310413360596
+Loss at iteration 60000:1.8899933099746704
+Loss at iteration 70000:2.029717206954956
+Loss at iteration 80000:2.3228707313537598
+Loss at iteration 90000:2.008964776992798
+1.963722586631775
+Training loss: 2.0424036979675293
+Validation loss: 2.054600715637207</code></pre>
+</div>
+</div>
+<p>The training and dev losses are now 2.044 and 2.069 respectively after 100,000 steps.</p>
+<div id="e8692346" class="cell" data-execution_count="22">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>plt.figure()</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>plt.plot(np.arange(n_iters), lossi)</span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"iteration"</span>)</span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"loss"</span>)</span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a><span class="co"># It can also be useful to plot logloss instead of loss</span></span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>plt.figure()</span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>plt.plot(np.arange(n_iters), np.log10(lossi))</span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"iteration"</span>)</span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Log loss"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="22">
+<pre><code>Text(0, 0.5, 'Log loss')</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v2_files/figure-html/cell-23-output-2.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v2_files/figure-html/cell-23-output-3.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="sample-from-the-model" class="level1">
+<h1>Sample from the model</h1>
+<div id="96578d4d" class="cell" data-execution_count="23">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>start_char <span class="op">=</span> <span class="st">"*"</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>end_char <span class="op">=</span> <span class="st">"*"</span></span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">123434</span>)</span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a>start_ind <span class="op">=</span> stoi[start_char]</span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">20</span>):</span>
+<span id="cb39-6"><a href="#cb39-6" aria-hidden="true" tabindex="-1"></a>    context <span class="op">=</span> [start_ind]<span class="op">*</span>context_length</span>
+<span id="cb39-7"><a href="#cb39-7" aria-hidden="true" tabindex="-1"></a>    all_chars <span class="op">=</span> [start_char]<span class="op">*</span>context_length</span>
+<span id="cb39-8"><a href="#cb39-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="va">True</span>:  </span>
+<span id="cb39-9"><a href="#cb39-9" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Now context contains the three character indices for our example</span></span>
+<span id="cb39-10"><a href="#cb39-10" aria-hidden="true" tabindex="-1"></a>        xembp <span class="op">=</span> C[torch.tensor(context)].view(<span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>) <span class="co"># Want to generate just one character at a time.</span></span>
+<span id="cb39-11"><a href="#cb39-11" aria-hidden="true" tabindex="-1"></a>        xhp <span class="op">=</span> (xembp <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() </span>
+<span id="cb39-12"><a href="#cb39-12" aria-hidden="true" tabindex="-1"></a>        logitsp <span class="op">=</span> xhp <span class="op">@</span> W2 <span class="op">+</span> b2 </span>
+<span id="cb39-13"><a href="#cb39-13" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Directly use the softmax function to calculate probabilites from logits</span></span>
+<span id="cb39-14"><a href="#cb39-14" aria-hidden="true" tabindex="-1"></a>        probsp <span class="op">=</span> F.softmax(logitsp, dim <span class="op">=</span> <span class="dv">1</span>)</span>
+<span id="cb39-15"><a href="#cb39-15" aria-hidden="true" tabindex="-1"></a>        ind <span class="op">=</span> torch.multinomial(probsp, num_samples <span class="op">=</span> <span class="dv">1</span>, replacement <span class="op">=</span> <span class="va">True</span>, generator <span class="op">=</span> g)</span>
+<span id="cb39-16"><a href="#cb39-16" aria-hidden="true" tabindex="-1"></a>        ch <span class="op">=</span> itos[ind.item()]</span>
+<span id="cb39-17"><a href="#cb39-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (ch <span class="op">==</span> end_char):</span>
+<span id="cb39-18"><a href="#cb39-18" aria-hidden="true" tabindex="-1"></a>            all_chars.append(ch)</span>
+<span id="cb39-19"><a href="#cb39-19" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span></span>
+<span id="cb39-20"><a href="#cb39-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:   </span>
+<span id="cb39-21"><a href="#cb39-21" aria-hidden="true" tabindex="-1"></a>            all_chars.append(ch)</span>
+<span id="cb39-22"><a href="#cb39-22" aria-hidden="true" tabindex="-1"></a>            context <span class="op">=</span> context[<span class="dv">1</span>:]<span class="op">+</span>[ind.item()]</span>
+<span id="cb39-23"><a href="#cb39-23" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">""</span>.join(all_chars))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>***tiarishi*
+***kashivi*
+***thakararman*
+***ami*
+***jigvi*
+***lisharsathevraj*
+***aswitha*
+***gar*
+***san*
+***gu navy*
+***anosheesilendundaretasrikshinitesha*
+***mathurdhalakry*
+***gyani*
+***tarenashwaswitha*
+***layisrujan*
+***grika*
+***hari*
+***kuman*
+***jiadajarlai*
+***vin*</code></pre>
+</div>
+</div>
+<p>#TODO - Think about how to visualize a n-dimensional embedding vector - refer to assignment 1 from CS224n</p>
+</section>
+<section id="experiment-increase-the-context-length-to-6" class="level1">
+<h1>Experiment = Increase the context length to 6</h1>
+<p>Rebuild the training, dev and test sets</p>
+<div id="827be986" class="cell" data-execution_count="24">
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>context_length <span class="op">=</span> <span class="dv">6</span></span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>random.shuffle(words)</span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>n1 <span class="op">=</span> <span class="bu">int</span>(<span class="fl">0.8</span><span class="op">*</span><span class="bu">len</span>(words))</span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>n2 <span class="op">=</span> <span class="bu">int</span>(<span class="fl">0.9</span><span class="op">*</span><span class="bu">len</span>(words))</span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>n1, n2</span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-8"><a href="#cb41-8" aria-hidden="true" tabindex="-1"></a>xstr, ystr <span class="op">=</span> build_dataset(words[:n1], context_length<span class="op">=</span>context_length)</span>
+<span id="cb41-9"><a href="#cb41-9" aria-hidden="true" tabindex="-1"></a>xsdev, ysdev <span class="op">=</span> build_dataset(words[n1:n2], context_length<span class="op">=</span>context_length)</span>
+<span id="cb41-10"><a href="#cb41-10" aria-hidden="true" tabindex="-1"></a>xstest, ystest <span class="op">=</span> build_dataset(words[n2:], context_length<span class="op">=</span>context_length)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>torch.Size([404607, 6]) torch.Size([404607])
+torch.Size([50637, 6]) torch.Size([50637])
+torch.Size([50448, 6]) torch.Size([50448])</code></pre>
+</div>
+</div>
+<p>Initialize</p>
+<div id="0bd93985" class="cell" data-execution_count="25">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>n_hidden <span class="op">=</span> <span class="dv">300</span></span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>embed_size <span class="op">=</span> <span class="dv">10</span></span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">4524757136458</span>)</span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> torch.randn(size <span class="op">=</span> (vocab_size, embed_size), generator<span class="op">=</span>g) <span class="co"># 30 X 2</span></span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a>W1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (context_length <span class="op">*</span> embed_size,n_hidden), generator<span class="op">=</span>g) <span class="co"># 6X100</span></span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a>b1 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden,), generator<span class="op">=</span>g) <span class="co"># 100</span></span>
+<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-9"><a href="#cb43-9" aria-hidden="true" tabindex="-1"></a>W2 <span class="op">=</span> torch.randn(size <span class="op">=</span> (n_hidden, vocab_size), generator<span class="op">=</span>g) <span class="co">#100X30</span></span>
+<span id="cb43-10"><a href="#cb43-10" aria-hidden="true" tabindex="-1"></a>b2 <span class="op">=</span> torch.rand(size <span class="op">=</span> (vocab_size,), generator<span class="op">=</span>g) <span class="co">#30</span></span>
+<span id="cb43-11"><a href="#cb43-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-12"><a href="#cb43-12" aria-hidden="true" tabindex="-1"></a>parameters <span class="op">=</span> [C, W1, b1, W2, b2]</span>
+<span id="cb43-13"><a href="#cb43-13" aria-hidden="true" tabindex="-1"></a><span class="co"># collect all the parameters</span></span>
+<span id="cb43-14"><a href="#cb43-14" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb43-15"><a href="#cb43-15" aria-hidden="true" tabindex="-1"></a>    p.requires_grad <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb43-16"><a href="#cb43-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-17"><a href="#cb43-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Number of parameters:"</span>, <span class="bu">sum</span>(p.nelement() <span class="cf">for</span> p <span class="kw">in</span> parameters))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Number of parameters: 27630</code></pre>
+</div>
+</div>
+<p>Train</p>
+<div id="adc5ab80" class="cell" data-execution_count="26">
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>n_iters <span class="op">=</span> <span class="dv">100000</span></span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>lossi <span class="op">=</span> []</span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(n_iters):</span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># construct minibatch by sampling indices from training dataset</span></span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a>    ix <span class="op">=</span> torch.randint(<span class="dv">0</span>, xstr.shape[<span class="dv">0</span>], (min_batch_size,), generator<span class="op">=</span>g)</span>
+<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># forward pass</span></span>
+<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a>    xemb <span class="op">=</span> C[xstr[ix]].view(min_batch_size, context_length<span class="op">*</span>embed_size)</span>
+<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>    xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() </span>
+<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a>    logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 </span>
+<span id="cb45-12"><a href="#cb45-12" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> F.cross_entropy(logits, ystr[ix])</span>
+<span id="cb45-13"><a href="#cb45-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-14"><a href="#cb45-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i<span class="op">%</span><span class="dv">10000</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb45-15"><a href="#cb45-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Loss at iteration </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">:</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb45-16"><a href="#cb45-16" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb45-17"><a href="#cb45-17" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Backward pass</span></span>
+<span id="cb45-18"><a href="#cb45-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb45-19"><a href="#cb45-19" aria-hidden="true" tabindex="-1"></a>        p.grad <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb45-20"><a href="#cb45-20" aria-hidden="true" tabindex="-1"></a>    loss.backward()</span>
+<span id="cb45-21"><a href="#cb45-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update parameters</span></span>
+<span id="cb45-22"><a href="#cb45-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">&lt;</span> <span class="dv">10000</span>:</span>
+<span id="cb45-23"><a href="#cb45-23" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate</span>
+<span id="cb45-24"><a href="#cb45-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> <span class="dv">10000</span> <span class="op">&lt;=</span> i <span class="op">&lt;</span> <span class="dv">50000</span>:</span>
+<span id="cb45-25"><a href="#cb45-25" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate<span class="op">/</span><span class="dv">10</span></span>
+<span id="cb45-26"><a href="#cb45-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb45-27"><a href="#cb45-27" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> learning_rate<span class="op">/</span><span class="dv">100</span></span>
+<span id="cb45-28"><a href="#cb45-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb45-29"><a href="#cb45-29" aria-hidden="true" tabindex="-1"></a>        p.data <span class="op">+=</span> <span class="op">-</span>lr<span class="op">*</span>p.grad</span>
+<span id="cb45-30"><a href="#cb45-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-31"><a href="#cb45-31" aria-hidden="true" tabindex="-1"></a>    <span class="co"># track statistics</span></span>
+<span id="cb45-32"><a href="#cb45-32" aria-hidden="true" tabindex="-1"></a>    lossi.append(loss.item())</span>
+<span id="cb45-33"><a href="#cb45-33" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb45-34"><a href="#cb45-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-35"><a href="#cb45-35" aria-hidden="true" tabindex="-1"></a><span class="co">#The above loss is just for the minibatch</span></span>
+<span id="cb45-36"><a href="#cb45-36" aria-hidden="true" tabindex="-1"></a><span class="co">#Calculating loss for the entire training data</span></span>
+<span id="cb45-37"><a href="#cb45-37" aria-hidden="true" tabindex="-1"></a>xemb <span class="op">=</span> C[xstr].view(<span class="op">-</span><span class="dv">1</span>, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb45-38"><a href="#cb45-38" aria-hidden="true" tabindex="-1"></a>xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb45-39"><a href="#cb45-39" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb45-40"><a href="#cb45-40" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> F.cross_entropy(logits, ystr)</span>
+<span id="cb45-41"><a href="#cb45-41" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Training loss:"</span>, loss.item())</span>
+<span id="cb45-42"><a href="#cb45-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-43"><a href="#cb45-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate loss for the dev data</span></span>
+<span id="cb45-44"><a href="#cb45-44" aria-hidden="true" tabindex="-1"></a>xemb <span class="op">=</span> C[xsdev].view(<span class="op">-</span><span class="dv">1</span>, context_length<span class="op">*</span>embed_size) <span class="co"># n_examplesX6</span></span>
+<span id="cb45-45"><a href="#cb45-45" aria-hidden="true" tabindex="-1"></a>xh <span class="op">=</span> (xemb <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() <span class="co"># n_examplesX100</span></span>
+<span id="cb45-46"><a href="#cb45-46" aria-hidden="true" tabindex="-1"></a>logits <span class="op">=</span> xh <span class="op">@</span> W2 <span class="op">+</span> b2 <span class="co"># n_examplesXvocab_size</span></span>
+<span id="cb45-47"><a href="#cb45-47" aria-hidden="true" tabindex="-1"></a>loss <span class="op">=</span> F.cross_entropy(logits, ysdev)</span>
+<span id="cb45-48"><a href="#cb45-48" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Validation loss:"</span>, loss.item())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Loss at iteration 0:33.63624954223633
+Loss at iteration 10000:5.671252250671387
+Loss at iteration 20000:1.910980463027954
+Loss at iteration 30000:2.230699062347412
+Loss at iteration 40000:2.423450469970703
+Loss at iteration 50000:1.8556514978408813
+Loss at iteration 60000:2.076598882675171
+Loss at iteration 70000:2.005889654159546
+Loss at iteration 80000:2.2849373817443848
+Loss at iteration 90000:2.453106641769409
+2.0403006076812744
+Training loss: 2.081007242202759
+Validation loss: 2.0885376930236816</code></pre>
+</div>
+</div>
+<p>The training and dev losses are now 2.064 and 2.083 respectively after 100,000 steps. The losses have actually increased by increasing the context length. Therefore, context length is not likely a bottleneck in our model.</p>
+<div id="0ffe7c06" class="cell" data-execution_count="27">
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>plt.figure()</span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>plt.plot(np.arange(n_iters), lossi)</span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"iteration"</span>)</span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"loss"</span>)</span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a><span class="co"># It can also be useful to plot logloss instead of loss</span></span>
+<span id="cb47-7"><a href="#cb47-7" aria-hidden="true" tabindex="-1"></a>plt.figure()</span>
+<span id="cb47-8"><a href="#cb47-8" aria-hidden="true" tabindex="-1"></a>plt.plot(np.arange(n_iters), np.log10(lossi))</span>
+<span id="cb47-9"><a href="#cb47-9" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"iteration"</span>)</span>
+<span id="cb47-10"><a href="#cb47-10" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Log loss"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="27">
+<pre><code>Text(0, 0.5, 'Log loss')</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v2_files/figure-html/cell-28-output-2.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v2_files/figure-html/cell-28-output-3.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="sample-from-the-model-1" class="level1">
+<h1>Sample from the model</h1>
+<div id="a150051b" class="cell" data-execution_count="28">
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>start_char <span class="op">=</span> <span class="st">"*"</span></span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>end_char <span class="op">=</span> <span class="st">"*"</span></span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">123434</span>)</span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>start_ind <span class="op">=</span> stoi[start_char]</span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">20</span>):</span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a>    context <span class="op">=</span> [start_ind]<span class="op">*</span>context_length</span>
+<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>    all_chars <span class="op">=</span> [start_char]<span class="op">*</span>context_length</span>
+<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="va">True</span>:  </span>
+<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Now context contains the three character indices for our example</span></span>
+<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a>        xembp <span class="op">=</span> C[torch.tensor(context)].view(<span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>) <span class="co"># Want to generate just one character at a time.</span></span>
+<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a>        xhp <span class="op">=</span> (xembp <span class="op">@</span> W1 <span class="op">+</span> b1).tanh() </span>
+<span id="cb49-12"><a href="#cb49-12" aria-hidden="true" tabindex="-1"></a>        logitsp <span class="op">=</span> xhp <span class="op">@</span> W2 <span class="op">+</span> b2 </span>
+<span id="cb49-13"><a href="#cb49-13" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Directly use the softmax function to calculate probabilites from logits</span></span>
+<span id="cb49-14"><a href="#cb49-14" aria-hidden="true" tabindex="-1"></a>        probsp <span class="op">=</span> F.softmax(logitsp, dim <span class="op">=</span> <span class="dv">1</span>)</span>
+<span id="cb49-15"><a href="#cb49-15" aria-hidden="true" tabindex="-1"></a>        ind <span class="op">=</span> torch.multinomial(probsp, num_samples <span class="op">=</span> <span class="dv">1</span>, replacement <span class="op">=</span> <span class="va">True</span>, generator <span class="op">=</span> g)</span>
+<span id="cb49-16"><a href="#cb49-16" aria-hidden="true" tabindex="-1"></a>        ch <span class="op">=</span> itos[ind.item()]</span>
+<span id="cb49-17"><a href="#cb49-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (ch <span class="op">==</span> end_char):</span>
+<span id="cb49-18"><a href="#cb49-18" aria-hidden="true" tabindex="-1"></a>            all_chars.append(ch)</span>
+<span id="cb49-19"><a href="#cb49-19" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span></span>
+<span id="cb49-20"><a href="#cb49-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:   </span>
+<span id="cb49-21"><a href="#cb49-21" aria-hidden="true" tabindex="-1"></a>            all_chars.append(ch)</span>
+<span id="cb49-22"><a href="#cb49-22" aria-hidden="true" tabindex="-1"></a>            context <span class="op">=</span> context[<span class="dv">1</span>:]<span class="op">+</span>[ind.item()]</span>
+<span id="cb49-23"><a href="#cb49-23" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">""</span>.join(all_chars))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>******tivaba*
+******shaashiva*
+******thatavaravu*
+******amikathiral*
+******vimepa*
+******jevraj*
+******ashitha*
+******garkiba*
+******gi nalhivathaeghilenduga*
+******vetas*
+******ganarnapam*
+******arimae*
+******adhalaliya*
+******yanidama*
+******gashnadu*
+******vimalayidru*
+******vaigeek*
+******mamoomknajeel*
+******amajaragi*
+******vinathani*</code></pre>
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
