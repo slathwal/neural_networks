@@ -1,7 +1,9 @@
 The final names dataset is compiled from a few sources:
-1. Get some Indian names from a [website](https://www.acko.com/health-insurance/s/pregnancy/baby-names/modern-indian-baby-names-for-boys-and-girls-with-meanings/) and save them in a file called `names.txt`
+1. https://www.acko.com/health-insurance/s/pregnancy/baby-names/modern-indian-baby-names-for-boys-and-girls-with-meanings/
 2. https://www.kaggle.com/datasets/jasleensondhi/indian-names-corpus-nltk-data/data
 3. https://www.kaggle.com/datasets/meemr5/indian-names-boys-girls
+
+The data from the above three sources is combined and saved in a file called `names.txt` in the data folder. The processing script is in the notebook `prepare_names_data.qmd`.
 
 Learning to build neural networks, with a focus on Natural Language Processing, from the following sources:
 
