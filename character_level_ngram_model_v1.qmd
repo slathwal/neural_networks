@@ -1,0 +1,264 @@
+---
+title: Developing a character-prediction n-gram model using MLP - version 1
+author: Shefali Lathwal
+date: 2025-06-11
+date-modified: last-modified
+format: html
+jupyter: cs224n
+echo: true
+toc: true
+---
+
+- Previously, we built character-level bigram model using counts matrix and using a linear layer in a neuron.
+- We also saw how to evaluate the model using neg log-likelihood
+- We are now going to extend the model to use more characters in context.
+- We are going to initially follow the paper by [Bengio et al. 2003](https://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf)
+
+# Build the training dataset
+Just like the Bengio et al. paper, let's build a training dataset with three characters in context.
+
+- Remember that we have "." on our training data itself. Therefore we are using a * to denote the beginning and end of words.
+
+- Nour our context is not a single character but a sequence of three characters. So each row in our xs training set would ba a list of three indices, and ys would be a single index
+```{python}
+with open("data/names.txt") as file:
+    text = file.read().splitlines()
+file.close()
+words = text
+len(words)
+
+
+# Create the lookup for character indices including a start and end of line character to the all_chars list
+
+all_chars = sorted(list(set("".join(words)))+["*"])
+len(all_chars), all_chars
+
+stoi = {s:i for i, s in enumerate(all_chars)}
+itos  = {i:s for i, s in enumerate(all_chars)}
+stoi
+```
+
+# Set some parameters
+
+```{python}
+vocab_size = len(all_chars) # vocabulary size for characters
+context_length = 3 # no of characters in context for prediction
+# embedding vector length for each character
+embed_size = 2
+```
+
+```{python}
+import torch
+xs, ys = [], []
+
+for word in words[:1]:
+    chs = "*"*context_length+word+"*"
+    #print(chs)
+    for ind in range(len(chs) - context_length):
+        ch1 = chs[ind:ind+context_length]
+        ch2 = chs[ind+context_length]
+        #print(f"{ch1}, {ch2}")
+        xs.append([stoi[ch] for ch in ch1])
+        ys.append(stoi[ch2])
+#print(xs, ys)
+num = len(ys)
+print("number of examples:", num)
+
+xs = torch.tensor(xs) # 10X3
+ys = torch.tensor(ys) # 10
+print(f"{xs.dtype=}\n {xs.shape=}\n {ys.dtype=}\n {ys.shape=}\n {xs=} \n {ys=}")
+```
+
+# Implement the embedding lookup
+The lookup matrix C will consist of the embeddings for each character.
+```{python}
+C = torch.randn(size = (vocab_size, embed_size)) # 30 X 2
+C, C.shape
+```
+
+For each training example, we want to get the embedding for each of the three characters in context
+
+```{python}
+xemb = C[xs] # 10X3X2
+xemb = xemb.view(num, -1) #10X6
+xemb.shape 
+```
+
+# Implement the hidden layer
+
+```{python}
+# The first part of the hidden layer is to multiply the embeddings with weights and matrices. The number of neurons in this hidden layer is a hyperparameter
+n_hidden = 100
+
+W1 = torch.randn(size = (context_length * embed_size,n_hidden)) # 6X100
+b1 = torch.randn(size = (n_hidden,)) # 100
+
+xl = xemb @ W1 + b1 # We can't do this without casting xemb
+xl[0], xl.shape # 10X100
+
+# Send the output from linear operation to tanh function
+xh = xl.tanh()
+xh.shape
+```
+
+# Implement the output layer
+
+```{python}
+W2 = torch.randn(size = (n_hidden, vocab_size)) #100X30
+b2 = torch.rand(size = (vocab_size,)) #30
+
+logits = xh @ W2 + b2 # 10X30
+counts = logits.exp()
+probs = counts / counts.sum(dim = 1, keepdim = True)
+```
+
+# Calculate the loss
+ To calculate the loss, we need to compare the probability predicted by the model for the actual next character for each example
+```{python}
+# expectdd loss without training
+exp_loss = -torch.tensor([1./vocab_size]).log()
+loss = - probs[torch.arange(0, num), ys].log().mean()
+loss, exp_loss
+```
+We are quite far for expected loss, likely because of initialization issues that will be handled later. Let's implement the training loop for now.
+
+# Implement the training loop
+
+## Initialization
+```{python}
+xs, ys = [], []
+
+for word in words:
+    chs = "*"*context_length+word+"*"
+    #print(chs)
+    for ind in range(len(chs) - context_length):
+        ch1 = chs[ind:ind+context_length]
+        ch2 = chs[ind+context_length]
+        #print(f"{ch1}, {ch2}")
+        xs.append([stoi[ch] for ch in ch1])
+        ys.append(stoi[ch2])
+#print(xs, ys)
+num = len(ys)
+print("number of examples:", num)
+
+xs = torch.tensor(xs) # 10X3
+ys = torch.tensor(ys) # 10
+
+C = torch.randn(size = (vocab_size, embed_size)) # 30 X 2
+
+
+W1 = torch.randn(size = (context_length * embed_size,n_hidden)) # 6X100
+b1 = torch.randn(size = (n_hidden,)) # 100
+
+W2 = torch.randn(size = (n_hidden, vocab_size)) #100X30
+b2 = torch.rand(size = (vocab_size,)) #30
+
+parameters = [C, W1, b1, W2, b2]
+# collect all the parameters
+for p in parameters:
+    p.requires_grad = True
+```
+
+## Training loop
+```{python}
+for i in range(1000):
+    xemb = C[xs] # 10X3X2
+    xemb = xemb.view(num, -1) #10X6
+
+    xl = xemb @ W1 + b1 # We can't do this without casting xemb
+
+    # Send the output from linear operation to tanh function
+    xh = xl.tanh() # 10X100
+
+    logits = xh @ W2 + b2 # 10X30
+    counts = logits.exp()
+    probs = counts / counts.sum(dim = 1, keepdim = True)
+
+    loss = - probs[torch.arange(0, num), ys].log().mean()
+    if i%50 == 0: 
+        print(f"loss in iteration {i}: {loss.item()}")
+    # Backward pass
+    for p in parameters:
+        p.grad = None
+
+    loss.backward()
+
+    # Update gradients
+    for p in parameters:
+        p.data += -0.1*p.grad
+```
+
+```{python}
+print(loss.item())
+```
+
+Training loss after 1000 iterations with the whole dataset = 2.337923288345337
+
+# Sample from the model
+
+```{python}
+start_char = "*"
+g = torch.Generator().manual_seed(123434)
+
+for _ in range(20):
+    chs = [ch for ch in start_char*context_length]
+    #print(chs)
+    all_chars = chs
+    nump = 1
+    while True:  
+        #print(chs)
+        xp = []
+        xp.append([stoi[ch] for ch in chs])
+        #print(xs)
+        xembp = C[xp] # 1X3X2
+        xembp = xembp.view(nump, -1) #1X6
+        xlp = xembp @ W1 + b1 
+        xhp = xlp.tanh() # 1X100
+        logitsp = xhp @ W2 + b2 #1X30
+        countsp = logitsp.exp()
+        probsp = countsp / countsp.sum(dim = 1, keepdim = True) #1X30
+        ind = torch.multinomial(probsp[0], num_samples = 1, replacement = True, generator = g)
+        #print(ind)
+        ch = itos[ind.item()]
+        #print(ch)
+        if (ch == "*"):
+            all_chars.append(ch)
+            break
+        else:   
+            all_chars.append(ch)
+            chs = all_chars[-context_length:]
+            #print(chs)
+    print("".join(all_chars))
+```
+
+The above training with the whole dataset is too slow. The initial loss is too high compared to the expected loss. Therefore, we need to fix these two problems.
+
+We will solve the above problems one by one.
+
+# Train in minibatches instead of the whole dataset
+We will sample a minibatch from the data instead of taking the whole data at every iteration of the gradient descent algorithm.
+
+```{python}
+#TODO
+```
+
+# Tuning the learning rate
+
+```{python}
+#TODO
+```
+
+# Split the data into training, validation and test sets
+```{python}
+#TODO
+```
+
+# Visualize the embedding vectors
+```{python}
+#TODO
+```
+
+```{python}
+#TODO
+```
+
