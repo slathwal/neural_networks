@@ -33,8 +33,8 @@ len(words)
 all_chars = sorted(list(set("".join(words)))+["*"])
 
 stoi = {s:i for i, s in enumerate(all_chars)}
-itos  = {i:s for i, s in stoi.items()}
-stoi
+itos  = {i:s for s, i in stoi.items()}
+stoi, itos
 ```
 
 ## Set some parameters
@@ -287,12 +287,289 @@ The above loss is on the entire training dataset and we may be overfitting the t
 - Shuffle the words and extract data upto n1, from n1 to n2, and from n2 to end. These will become the training, dev and test datasets.
 
 ```{python}
-#TODO
+import random
+def build_dataset(words, context_length = context_length):
+    xs, ys = [], []
+    for word in words:
+        chs = "*"*context_length+word+"*"
+        #print(word)
+        for ind in range(len(chs) - context_length):
+            ch1 = chs[ind:ind+context_length]
+            ch2 = chs[ind+context_length]
+            #print(f"{ch1} ----> {ch2}")
+            xs.append([stoi[ch] for ch in ch1])
+            ys.append(stoi[ch2])
+
+    xs = torch.tensor(xs) # 10X3
+    ys = torch.tensor(ys) # 10
+    print(xs.shape, ys.shape)
+    return xs, ys
+
+random.shuffle(words)
+n1 = int(0.8*len(words))
+n2 = int(0.9*len(words))
+n1, n2
+
+xstr, ystr = build_dataset(words[:n1])
+xsdev, ysdev = build_dataset(words[n1:n2])
+xstest, ystest = build_dataset(words[n2:])
 ```
 
-# Visualize the embedding vectors
+Initialize
 ```{python}
-#TODO
+g = torch.Generator().manual_seed(4524757136458)
+C = torch.randn(size = (vocab_size, embed_size), generator=g) # 30 X 2
+
+W1 = torch.randn(size = (context_length * embed_size,n_hidden), generator=g) # 6X100
+b1 = torch.randn(size = (n_hidden,), generator=g) # 100
+
+W2 = torch.randn(size = (n_hidden, vocab_size), generator=g) #100X30
+b2 = torch.rand(size = (vocab_size,), generator=g) #30
+
+parameters = [C, W1, b1, W2, b2]
+# collect all the parameters
+for p in parameters:
+    p.requires_grad = True
+
+print("Number of parameters:", sum(p.nelement() for p in parameters))
+```
+
+Train
+```{python}
+n_iters = 100000
+for i in range(n_iters):
+    
+    # construct minibatch by sampling indices from training dataset
+    ix = torch.randint(0, xstr.shape[0], (min_batch_size,), generator=g)
+    
+    # forward pass
+    xemb = C[xstr[ix]].view(min_batch_size, context_length*embed_size) # n_examplesX6
+    xh = (xemb @ W1 + b1).tanh() # n_examplesX100
+    logits = xh @ W2 + b2 # n_examplesXvocab_size
+    loss = F.cross_entropy(logits, ystr[ix])
+
+    if i%10000 == 0:
+        print(f"Loss at iteration {i}:{loss.item()}")
+    
+    # Backward pass
+    for p in parameters:
+        p.grad = None
+    loss.backward()
+    # Update parameters
+    if i < 10000:
+        lr = learning_rate
+    elif 10000 <= i < 50000:
+        lr = learning_rate/10
+    else:
+        lr = learning_rate/100
+    for p in parameters:
+        p.data += -lr*p.grad
+print(f"{loss.item()}")
+
+#The above loss is just for the minibatch
+#Calculating loss for the entire training data
+xemb = C[xstr].view(-1, context_length*embed_size) # n_examplesX6
+xh = (xemb @ W1 + b1).tanh() # n_examplesX100
+logits = xh @ W2 + b2 # n_examplesXvocab_size
+loss = F.cross_entropy(logits, ystr)
+print("Training loss:", loss.item())
+
+# Calculate loss for the dev data
+xemb = C[xsdev].view(-1, context_length*embed_size) # n_examplesX6
+xh = (xemb @ W1 + b1).tanh() # n_examplesX100
+logits = xh @ W2 + b2 # n_examplesXvocab_size
+loss = F.cross_entropy(logits, ysdev)
+print("Validation loss:", loss.item())
+```
+
+The training and validation loss are quite close to each other, being 2.11 and 2.12, respectively after 100,000 iterations with the above learning rates.
+
+When training loss and validation loss are very similar, it indicates that our neural network is not overfitting on the training data, and there should be scope for improving it. Some strategies that we can use:
+
+1. Increase the number of parameters in the neural network by increasing the number of neurons in the hidden layer.
+2. Increase the embed_size to capture more information for each character
+
+# Experiment - increase the parameters in the hidden layer
+
+Initialize
+```{python}
+n_hidden = 300
+g = torch.Generator().manual_seed(4524757136458)
+C = torch.randn(size = (vocab_size, embed_size), generator=g) # 30 X 2
+
+W1 = torch.randn(size = (context_length * embed_size,n_hidden), generator=g) # 6X100
+b1 = torch.randn(size = (n_hidden,), generator=g) # 100
+
+W2 = torch.randn(size = (n_hidden, vocab_size), generator=g) #100X30
+b2 = torch.rand(size = (vocab_size,), generator=g) #30
+
+parameters = [C, W1, b1, W2, b2]
+# collect all the parameters
+for p in parameters:
+    p.requires_grad = True
+
+print("Number of parameters:", sum(p.nelement() for p in parameters))
+```
+
+Train
+```{python}
+n_iters = 100000
+lossi = []
+for i in range(n_iters):
+    
+    # construct minibatch by sampling indices from training dataset
+    ix = torch.randint(0, xstr.shape[0], (min_batch_size,), generator=g)
+    
+    # forward pass
+    xemb = C[xstr[ix]].view(min_batch_size, context_length*embed_size) # n_examplesX6
+    xh = (xemb @ W1 + b1).tanh() # n_examplesX100
+    logits = xh @ W2 + b2 # n_examplesXvocab_size
+    loss = F.cross_entropy(logits, ystr[ix])
+
+    if i%10000 == 0:
+        print(f"Loss at iteration {i}:{loss.item()}")
+    
+    # Backward pass
+    for p in parameters:
+        p.grad = None
+    loss.backward()
+    # Update parameters
+    if i < 10000:
+        lr = learning_rate
+    elif 10000 <= i < 50000:
+        lr = learning_rate/10
+    else:
+        lr = learning_rate/100
+    for p in parameters:
+        p.data += -lr*p.grad
+
+    # track statistics
+    lossi.append(loss.item())
+print(f"{loss.item()}")
+
+#The above loss is just for the minibatch
+#Calculating loss for the entire training data
+xemb = C[xstr].view(-1, context_length*embed_size) # n_examplesX6
+xh = (xemb @ W1 + b1).tanh() # n_examplesX100
+logits = xh @ W2 + b2 # n_examplesXvocab_size
+loss = F.cross_entropy(logits, ystr)
+print("Training loss:", loss.item())
+
+# Calculate loss for the dev data
+xemb = C[xsdev].view(-1, context_length*embed_size) # n_examplesX6
+xh = (xemb @ W1 + b1).tanh() # n_examplesX100
+logits = xh @ W2 + b2 # n_examplesXvocab_size
+loss = F.cross_entropy(logits, ysdev)
+print("Validation loss:", loss.item())
+```
+The training and dev losses are now 2.09 and 2.10 respectively after 100,000 steps.
+
+```{python}
+plt.plot(np.arange(n_iters), lossi)
+plt.xlabel("iteration")
+plt.ylabel("loss")
+```
+
+One of the reasons why the line is thick is because our batch size is quite small at 32. Therefore, there is a lot of jitter in the loss value.
+
+# Visualize the 2-D embedding vectors
+```{python}
+embed_1 = C[:, 0].detach().numpy() # embedding in 1st dimension
+embed_2 = C[:,1].detach().numpy() # embedding in 2nd dimension
+# plt.plot(C[:,0], C[:,1]) # This line creates an error
+plt.scatter(embed_1, embed_2, s = 200)
+
+for i in range(C.shape[0]):
+    #print(i)
+    plt.text(embed_1[i], embed_2[i],s = itos[i], ha = "center", va = "center", color = "white")
+plt.grid("minor")
+```
+
+We can see that the vowels cluster together on the center right.
+
+- The start and end character clusters with the empty character.
+
+# Experiment - Increase the embedding vector size to 10
+
+Initialize
+```{python}
+n_hidden = 300
+embed_size = 10
+g = torch.Generator().manual_seed(4524757136458)
+C = torch.randn(size = (vocab_size, embed_size), generator=g) # 30 X 2
+
+W1 = torch.randn(size = (context_length * embed_size,n_hidden), generator=g) # 6X100
+b1 = torch.randn(size = (n_hidden,), generator=g) # 100
+
+W2 = torch.randn(size = (n_hidden, vocab_size), generator=g) #100X30
+b2 = torch.rand(size = (vocab_size,), generator=g) #30
+
+parameters = [C, W1, b1, W2, b2]
+# collect all the parameters
+for p in parameters:
+    p.requires_grad = True
+
+print("Number of parameters:", sum(p.nelement() for p in parameters))
+```
+
+Train
+```{python}
+n_iters = 100000
+lossi = []
+for i in range(n_iters):
+    
+    # construct minibatch by sampling indices from training dataset
+    ix = torch.randint(0, xstr.shape[0], (min_batch_size,), generator=g)
+    
+    # forward pass
+    xemb = C[xstr[ix]].view(min_batch_size, context_length*embed_size)
+    xh = (xemb @ W1 + b1).tanh() 
+    logits = xh @ W2 + b2 
+    loss = F.cross_entropy(logits, ystr[ix])
+
+    if i%10000 == 0:
+        print(f"Loss at iteration {i}:{loss.item()}")
+    
+    # Backward pass
+    for p in parameters:
+        p.grad = None
+    loss.backward()
+    # Update parameters
+    if i < 10000:
+        lr = learning_rate
+    elif 10000 <= i < 50000:
+        lr = learning_rate/10
+    else:
+        lr = learning_rate/100
+    for p in parameters:
+        p.data += -lr*p.grad
+
+    # track statistics
+    lossi.append(loss.item())
+print(f"{loss.item()}")
+
+#The above loss is just for the minibatch
+#Calculating loss for the entire training data
+xemb = C[xstr].view(-1, context_length*embed_size) # n_examplesX6
+xh = (xemb @ W1 + b1).tanh() # n_examplesX100
+logits = xh @ W2 + b2 # n_examplesXvocab_size
+loss = F.cross_entropy(logits, ystr)
+print("Training loss:", loss.item())
+
+# Calculate loss for the dev data
+xemb = C[xsdev].view(-1, context_length*embed_size) # n_examplesX6
+xh = (xemb @ W1 + b1).tanh() # n_examplesX100
+logits = xh @ W2 + b2 # n_examplesXvocab_size
+loss = F.cross_entropy(logits, ysdev)
+print("Validation loss:", loss.item())
+```
+
+The training and dev losses are now 2.044 and 2.069 respectively after 100,000 steps.
+
+```{python}
+plt.plot(np.arange(n_iters), lossi)
+plt.xlabel("iteration")
+plt.ylabel("loss")
 ```
 
 
