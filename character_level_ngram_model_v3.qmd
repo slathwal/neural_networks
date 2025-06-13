@@ -232,7 +232,7 @@ for p in parameters:
 print("Number of parameters:", sum(p.nelement() for p in parameters))
 ```
 
-Run the first forward step
+Training loop
 ```{python}
 n_iters = 200000
 lossi = []
@@ -528,19 +528,17 @@ calculate_split_loss('train')
 calculate_split_loss('val')
 ```
 
-
-
 # Tracking losses
 
 Original loss - without any optimization
 Train - 2.024
 Val - 2.044
 
-Fix logits (softmax being confidently wrong and assigning large probabilities to one character)
+Fix: logits (softmax being confidently wrong and assigning large probabilities to one character)
 Train - 1.942
 Val - 1.957
 
-Fix tanh layer being too saturated at initialization
+Fix: tanh layer being too saturated at initialization
 Train - 1.938
 Val - 1.950
 
@@ -551,7 +549,7 @@ Val - 1.942
 Fix: Add simple batchnormalization. We don't expect batch normalization to do much here because it's a shallow network and we have already scaled W1. We see that in this case it makes the losses worse.
 Train - 1.959
 Val - 1.972
- The above remain the same when we calculate running mean and running std for the batch norm layer. It also remains the same after removing the bias term in the linear layer before batch norm layer.
+The above remain the same when we calculate running mean and running std for the batch norm layer. It also remains the same after removing the bias term in the linear layer before batch norm layer.
 
 
 
