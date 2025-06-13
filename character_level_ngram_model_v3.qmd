@@ -218,7 +218,7 @@ Re-initialize the neural network
 g = torch.Generator().manual_seed(4524757136458)
 C = torch.randn(size = (vocab_size, embed_size), generator=g)
 
-W1 = torch.randn(size = (context_length * embed_size,n_hidden), generator=g) * 0.2
+W1 = torch.randn(size = (context_length * embed_size,n_hidden), generator=g) * (5/3)/((context_length*embed_size)**0.5) #0.2
 b1 = torch.randn(size = (n_hidden,), generator=g) * 0.01
 
 W2 = torch.randn(size = (n_hidden, vocab_size), generator=g) * 0.01
@@ -345,6 +345,10 @@ Fix tanh layer being too saturated at initialization
 Train - 1.938
 Val - 1.950
 
+Fix: scale W1 using Kaiming initialization factor
+Train - 1.928
+Val - 1.942
+
 
 # How to set scales for layer weights that help with less tanh saturation and smaller logit values at initialization
 Visualize the problem first.
@@ -388,5 +392,91 @@ fig.tight_layout();
 ```
 
 A paper that explains these scaling factors to maintain good distributions throughout a neural network during initialization is Kaiming He et al. 2015. They studied convolutional neural networs and they studied ReLU and PReLU non-linearities. In their analysis of forward activation of the neural net, they find that instead of reducing weights by `sqrt(fan_in)`, they also have to multiply by a `gain` to account for half of the numbers being discarded in ReLU.
+
+Kaiming normalization is also implemented in pytorch in `torch.nn.init.kaiming_normal`. The documentation page for this function provides the gains for different non-linearities.
+
+Intuitively, we need a gain because non-linearities like tanh or ReLU are squasing functions that narrow the distribution. Therefore, we need a small gain to counter the squashing.
+
+There are modern techniques that counter some of the issues with incorrect normalizations:
+- residul connections
+- normalization layers like batch normalizations, layer normalizations etc.
+- better optimizers like Adam.
+
+In practice, scale the std of weights by `gain/sqrt(fan_in)`, which means multiplying normally initialized weights by the factor above.
+
+# Batch normalization
+
+- Mititgates some of the issues associated with incorrect initialization.
+
+Initialize the neural network
+```{python}
+g = torch.Generator().manual_seed(4524757136458)
+C = torch.randn(size = (vocab_size, embed_size), generator=g)
+
+W1 = torch.randn(size = (context_length * embed_size,n_hidden), generator=g) * (5/3)/((context_length*embed_size)**0.5) #0.2
+b1 = torch.randn(size = (n_hidden,), generator=g) * 0.01
+
+W2 = torch.randn(size = (n_hidden, vocab_size), generator=g) * 0.01
+b2 = torch.rand(size = (vocab_size,), generator=g) * 0
+
+parameters = [C, W1, b1, W2, b2]
+# collect all the parameters
+for p in parameters:
+    p.requires_grad = True
+
+print("Number of parameters:", sum(p.nelement() for p in parameters))
+```
+
+Training loop:
+```{python}
+n_iters = 200000
+lossi = []
+learning_rate = 0.2
+for i in range(n_iters): 
+    # construct minibatch by sampling indices from training dataset
+    ix = torch.randint(0, xstr.shape[0], (min_batch_size,), generator=g)
+    Xb, Yb = xstr[ix], ystr[ix] # Batch X, Y 
+    # forward pass
+    xemb = C[Xb].view(min_batch_size, context_length*embed_size) # embed the characters into vectors and concatenate the vectors
+    hpreact = (xemb @ W1 + b1) # hidden layer pre-activation
+    h = torch.tanh(hpreact) # hidden layer
+    logits = h @ W2 + b2 # output layer
+    loss = F.cross_entropy(logits, Yb) # loss function
+
+    if i%10000 == 0:
+        print(f"Loss at iteration {i:7d} /{n_iters:7d}: {loss.item():.4f}")
+    
+    # Backward pass
+    for p in parameters:
+        p.grad = None
+    loss.backward()
+
+    # Update parameters
+    if i < 10000:
+        lr = learning_rate
+    elif 10000 <= i < 50000:
+        lr = learning_rate/10
+    else:
+        lr = learning_rate/100
+    for p in parameters:
+        p.data += -lr*p.grad
+
+    # track statistics
+    lossi.append(loss.item())
+    #break
+
+print(f"{loss.item()}")
+```
+
+```{python}
+plt.plot(np.log10(lossi))
+```
+
+```{python}
+calculate_split_loss('train')
+calculate_split_loss('val')
+```
+
+
 
 
