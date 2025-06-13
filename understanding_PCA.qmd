@@ -1,0 +1,143 @@
+---
+title: Understanding Principal Components Analysis
+date: 2025-06-13
+date-modified: last-modified
+format: html
+echo: true
+toc: true
+jupyter: python3
+---
+
+We will talk about the following:
+
+- How PCA can take 3 or more dimensions of data and make a 2-D plot
+- How PCA can tell us which variable is the most valuable for clustering the data
+- How accurate the 2D graph is.
+
+
+# Generate toy data with only two variables
+```{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+ns = 10
+
+rng = np.random.default_rng(seed = 24524526428)
+values1 = rng.normal(0,1,ns)
+#values1 = rng.normal(0, 1, ns)#
+values2 = values1*0.3 + 0 + rng.normal(0, 0.1, ns)
+values1, values2
+print(values2.std(), values1.std())
+df = pd.DataFrame(columns = [f"sample{i+1}" for i in range(ns)], data = [values1, values2], index = ["var1", "var2"])
+df
+```
+
+# Visualize the data
+```{python}
+#plt.scatter(df["var1",:], df["var2", :])
+plt.scatter(df.loc["var1"], df.loc["var2"], s= 200)
+plt.xlabel(df.index[0])
+plt.ylabel(df.index[1])
+for i in range(ns):
+    plt.text(df.iloc[0,i], df.iloc[1,i], s = f"s{i+1}", va = "center", ha = "center", color = "white")
+```
+
+# Step1: Calculate the mean of the two variables across all samples
+
+```{python}
+mean_var1 = df.loc["var1"].mean()
+mean_var2 = df.loc["var2"].mean()
+mean_var1, mean_var2
+```
+
+# Step 2: Shift the center to be the mean
+
+```{python}
+dft = df.copy()
+dft.loc["var1"] = df.loc["var1"] - mean_var1
+dft.loc["var2"] = df.loc["var2"] - mean_var2
+
+mean_var1 = dft.loc["var1"].mean()
+mean_var2 = dft.loc["var2"].mean()
+mean_var1, mean_var2
+```
+
+```{python}
+#plt.scatter(df["var1",:], df["var2", :])
+fig, ax = plt.subplots()
+ax.scatter(dft.loc["var1"], dft.loc["var2"], s = 200)
+ax.set_xlabel(dft.index[0])
+ax.set_ylabel(dft.index[1])
+for i in range(ns):
+    ax.text(dft.iloc[0,i], dft.iloc[1,i], s = f"s{i+1}", va = "center", ha = "center", color = "white")
+ax.plot(mean_var1, mean_var2, "ko", markersize = 15)
+
+ax.spines['left'].set_position('zero')
+ax.spines['bottom'].set_position('zero')
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+```
+
+# Step3: Fit a line to the data that also passes through the origin
+
+- Draw a random line through the origin
+- Project each point on the line
+- Minimize the distance from each data to the line or maximize the distance from the projected point to the origin
+
+Use ordinary least squares to find the lines that best fits the centered data.
+```{python}
+import statsmodels.api as sm
+Y = dft.loc["var2"]
+X = dft.loc["var1"]
+model = sm.OLS(Y,X)
+results = model.fit()
+results.params
+m = results.params.values[0]
+m
+```
+
+The slope of the fitted line is: `{python} f"{results.params.values[0]:.4f}"`
+
+
+# Step 4: calculate the direction of the principal components
+Step4: The fitted line is the PC1 axis and contains the direction of the eigenvector for PC1. The average value of the sum of squared distances of projection of each data point on PC1 represents the contribution of PC1 to total variance. This value is called eigenvalue for PC1. 
+The coefficients of each variable in the PC1 eigenvector are called loadings and represent the contribution of each variable to PC1.
+
+Normalize and calculate the eigen vectors.
+```{python}
+v1 = np.array([1., m*1.])
+v1mod = np.linalg.norm(v1)
+v1 = v1/v1mod
+v1
+```
+
+The values of the eigen vector give the loadings of each variable. for PC1, the loading of var1 is `{python} f"{v1[0]:.4f}"` and loading of var2 is `{python} f"{v1[1]:.4f}"`.
+
+Look at eigenvector for PC2
+
+```{python}
+m2 = -1/m
+v2 = np.array([1., m2*1.])
+v2mod = np.linalg.norm(v2)
+v2 = v2/v2mod
+v2
+
+print(f"Eigen vector 1: {v1}\n Eigen vector 2: {v2}")
+```
+
+# Calculate eigen vectors for PC1 and PC2 using sklearn
+Now calculate PC1 and PC2 using scikit-learn PCA module
+
+```{python}
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+#df_scaled = scaler.fit_transform(df.transpose()) # We want to scale the data when variables are measured on different scales or have different units.
+pca = PCA(n_components=2)
+pca.fit(df.transpose())
+#pca.fit(df_scaled)
+
+pca.components_, pca.mean_, pca.explained_variance_ratio_, pca.n_samples_, pca.n_features_in_
+```
+
+My values are coming out approximately the same as the sklearn method, but not identical.
