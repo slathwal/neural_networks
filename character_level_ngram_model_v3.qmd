@@ -331,25 +331,6 @@ h - output of hidden layer:
 
 - With deeper networks - example 50 layers - these problems stack up and deeper networks become less forgiving to problems like initialization.
 
-# Tracking losses
-
-Original loss - without any optimization
-Train - 2.024
-Val - 2.044
-
-Fix logits (softmax being confidently wrong and assigning large probabilities to one character)
-Train - 1.942
-Val - 1.957
-
-Fix tanh layer being too saturated at initialization
-Train - 1.938
-Val - 1.950
-
-Fix: scale W1 using Kaiming initialization factor
-Train - 1.928
-Val - 1.942
-
-
 # How to set scales for layer weights that help with less tanh saturation and smaller logit values at initialization
 Visualize the problem first.
 
@@ -408,18 +389,47 @@ In practice, scale the std of weights by `gain/sqrt(fan_in)`, which means multip
 
 - Mititgates some of the issues associated with incorrect initialization.
 
+- We want all intermediate pre-activation states to neither be too small, because then tanh layer is not doing much or too large, because then tanh layer is saturated. We want these to be roughly Gaussian with unit standard deviation and zero mean at initialization.
+
+- Batch normalization says that we should directly normalize the pre-activate states to be unit Gaussian.
+
+- We can do the above, because standardization hidden pre-activation states, i.e., subtracting the mean and dividing by standard deviation is a differentiable operation.
+
+- We want to do this standardization at initialization but not at every training loop because we want the pre-activations to move around as needed during the training loop. So we use the concept of scale and shift by introducing two new parameters - gain and bias.
+
+- Simple batch normalization takes longer to train than a neural net without batch normalization.
+
+- it's customary to add batch norm layers after every linear layer because it significantly stabilizes the training.
+
+- Batch normalization couples different training examples(in the mini-batch) mathematically. We can think of this as regularization because this coupling pads out the effect of any one example based on whatever other examples happen to be in the batch with it. This makes it hard for neural net to overfit to any given training example.
+
+- batch normalization can cause a lot of bugs in the code because training examples are coupled. Therefore, other normalization techniques are used which do not couple training examples, but it's property of regularizing effect makes it widely used.
+
+- Since during training, we are coupling all examples in a mini-batch to calculate a single mean and standard deviation, we have a problem. At validation time, we only feed in a single example, so how do we get the neural network to predict something with only one example and not a mini-batch? We can deal with the above in two ways:
+    - Calculate a bnmean and bnstd after the training is finished for the whole dataset and then use it during validation.
+    - Keep a running log of bnmean and bnstd during training and use it later during validation. This approach is preferred in practice. 
+
+- The running mean and running standard deviation of the batchnorm layer are also called buffers as these are calculated and updated during training but not through backpropagation as with other parameters.
+
+- Since we are standardizing the preactivations, the initial bias we added will not be used and we don't want to use bias as bias is added by the batchnorm layer.
+
 Initialize the neural network
 ```{python}
 g = torch.Generator().manual_seed(4524757136458)
 C = torch.randn(size = (vocab_size, embed_size), generator=g)
 
 W1 = torch.randn(size = (context_length * embed_size,n_hidden), generator=g) * (5/3)/((context_length*embed_size)**0.5) #0.2
-b1 = torch.randn(size = (n_hidden,), generator=g) * 0.01
+#b1 = torch.randn(size = (n_hidden,), generator=g) * 0.01
 
 W2 = torch.randn(size = (n_hidden, vocab_size), generator=g) * 0.01
 b2 = torch.rand(size = (vocab_size,), generator=g) * 0
 
-parameters = [C, W1, b1, W2, b2]
+bngain = torch.ones(size = (1, n_hidden)) # Because these are 1 at initialization, we have unit gaussian distribution at initialization and the distribution can shift as training proceeds.
+bnbias = torch.zeros(size = (1, n_hidden))
+bnmean_running = torch.zeros(size = (1, n_hidden)) # at initialization, the mean of preactivations is roughly 0
+bnstd_running = torch.ones(size = (1, n_hidden)) # at initialization the std of pre-activations is roughly 1
+
+parameters = [C, W1, W2, b2, bngain, bnbias]
 # collect all the parameters
 for p in parameters:
     p.requires_grad = True
@@ -436,11 +446,32 @@ for i in range(n_iters):
     # construct minibatch by sampling indices from training dataset
     ix = torch.randint(0, xstr.shape[0], (min_batch_size,), generator=g)
     Xb, Yb = xstr[ix], ystr[ix] # Batch X, Y 
+    
     # forward pass
+    # embedding layer
     xemb = C[Xb].view(min_batch_size, context_length*embed_size) # embed the characters into vectors and concatenate the vectors
-    hpreact = (xemb @ W1 + b1) # hidden layer pre-activation
+    
+    # Linear layer
+    hpreact = xemb @ W1# + b1 # hidden layer pre-activation
+    
+    # Batch Norm Layer
+    # --------------------
+    bnmeani = hpreact.mean(dim = 0, keepdim = True) # bnmean ith iteration
+    bnstdi = hpreact.std(dim = 0, keepdim = True)
+    hpreact = bngain*((hpreact - bnmeani)/(bnstdi)) + bnbias # Standardize the pre-activation values to be unit gaussian
+
+    with torch.no_grad(): # do not compute gradients for these computations
+        bnmean_running = 0.999 * bnmean_running + 0.001 * bnmeani
+        bnstd_running = 0.999 * bnstd_running + 0.001 * bnstdi
+    # ------------------------
+
+    # non-linearity
     h = torch.tanh(hpreact) # hidden layer
+
+    # output layer
     logits = h @ W2 + b2 # output layer
+
+    # loss calculation
     loss = F.cross_entropy(logits, Yb) # loss function
 
     if i%10000 == 0:
@@ -468,15 +499,59 @@ for i in range(n_iters):
 print(f"{loss.item()}")
 ```
 
+
 ```{python}
-plt.plot(np.log10(lossi))
+plt.plot(np.log10(lossi));
 ```
 
 ```{python}
+@torch.no_grad() # this decorator disables gradient tracking
+# We can also use a context manager (look this up)
+def calculate_split_loss(split):
+    # get the appropriate x an y based on the desired data split
+    x,y = {
+        "train": (xstr, ystr),
+        "val":(xsdev, ysdev),
+        "test": (xstest, ystest)
+    }[split]
+    xemb = C[x].view(-1,context_length*embed_size)
+    #xembcat = xemb
+    hpreact = xemb @ W1 #+ b1
+    #hpreact = bngain*((hpreact - hpreact.mean(dim = 0, keepdim = True))/(hpreact.std(dim = 0, keepdim = True))) + bnbias
+    hpreact = bngain * ((hpreact - bnmean_running)/bnstd_running) + bnbias 
+    xh = torch.tanh(hpreact)
+    logits = xh @ W2 + b2
+    loss = F.cross_entropy(logits, y)
+    print(split, loss.item())
+
 calculate_split_loss('train')
 calculate_split_loss('val')
 ```
 
+
+
+# Tracking losses
+
+Original loss - without any optimization
+Train - 2.024
+Val - 2.044
+
+Fix logits (softmax being confidently wrong and assigning large probabilities to one character)
+Train - 1.942
+Val - 1.957
+
+Fix tanh layer being too saturated at initialization
+Train - 1.938
+Val - 1.950
+
+Fix: scale W1 using Kaiming initialization factor
+Train - 1.928
+Val - 1.942
+
+Fix: Add simple batchnormalization. We don't expect batch normalization to do much here because it's a shallow network and we have already scaled W1. We see that in this case it makes the losses worse.
+Train - 1.959
+Val - 1.972
+ The above remain the same when we calculate running mean and running std for the batch norm layer. It also remains the same after removing the bias term in the linear layer before batch norm layer.
 
 
 
