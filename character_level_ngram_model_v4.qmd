@@ -123,3 +123,18 @@ print(x.mean(dim = 0, keepdim = True), layer.running_mean, sep = "\n")
 print(x.var(dim = 0, keepdim=True), layer.running_var, sep = "\n")
 len(layer.parameters()), sum(p.nelement() for p in layer.parameters())
 ```
+
+
+# Build MLP using the above modules
+
+
+
+# The statistics to monitor at initialization
+---------------------------------------
+TOEDIT
+- distribution of activations in the forward pass
+- distribution of saturated values in each non-linear layer in the forward pass
+
+- distribution of gradient/data ratio in each layer during backward pass as well as mean and std of gradients
+- distribution of ratio of update value with the parameter value at each iteration.
+
