@@ -20,6 +20,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+import random
 ```
 
 # Write the layer modules
@@ -27,7 +28,7 @@ import torch.nn.functional as F
 class Linear:
 
     def __init__(self, fan_in, fan_out, bias = True):
-        self. weight = torch.randn(fan_in, fan_out) * (fan_in)**0.5 # kaiming initialization for linear layer
+        self. weight = torch.randn((fan_in, fan_out), generator = g) * (fan_in)**0.5 # kaiming initialization for linear layer
         self.bias = torch.zeros(fan_out) if bias else None
     
     def __repr__(self):
@@ -124,10 +125,149 @@ print(x.var(dim = 0, keepdim=True), layer.running_var, sep = "\n")
 len(layer.parameters()), sum(p.nelement() for p in layer.parameters())
 ```
 
+# read the words, define the vocabulary and build mapping from vocabulary to integers
+```{python}
+with open("data/names.txt") as file:
+    words = file.read().splitlines()
+len(words)
+
+# Build a character vocabulary
+all_chars = sorted(list(set(''.join(words)+"*")))
+
+# Build a mapping dictionary
+stoi = {s:i for i,s in enumerate(all_chars)}
+itos = {i:s for s,i in stoi.items()}
+```
+
 
 # Build MLP using the above modules
 
+```{python}
+n_hidden = 100
+embed_size = 10
+vocab_size = len(all_chars)
+mini_batch_size = 32
+context_length = 3
+```
 
+# Build the training data
+
+```{python}
+def build_dataset(words):
+    xs = []
+    ys = []
+    for word in words:
+        context = ['*']*context_length
+        chs = word+'*'
+        #ch_list = [ch for ch in chs]
+        #print(ch_list)
+        for ch in chs:
+            #print(ch)
+            #print(''.join(context), ch)
+            xs.append([stoi[s] for s in context])
+            ys.append(stoi[ch])
+            context = context[1:]+[ch]
+    xs = torch.tensor(xs)
+    ys = torch.tensor(ys)
+    return xs, ys
+
+random.shuffle(words)
+n1 = int(0.8*len(words))
+n2 = int(0.9*len(words))
+n1, n2
+
+xstr, ystr = build_dataset(words[:n1])
+xsdev, ysdev = build_dataset(words[n1:n2])
+xstest, ystest = build_dataset(words[n2:])
+```
+
+```{python}
+ystr[:10], xstr[:10]
+```
+
+# Build the neural network
+
+## Intialize
+```{python}
+g = torch.Generator().manual_seed(624896294)
+# Initialize the embedding layer
+C = torch.randn((vocab_size, embed_size), generator = g)
+layers = [
+    Linear(context_length*embed_size, n_hidden), Tanh(),
+    Linear(n_hidden, n_hidden), Tanh(),
+    Linear(n_hidden, n_hidden), Tanh(),
+    Linear(n_hidden, n_hidden), Tanh(),
+    Linear(n_hidden, n_hidden), Tanh(),
+    Linear(n_hidden, vocab_size),
+]
+
+# Perform proper initialization
+with torch.no_grad():
+    # make last layer less confident
+    layers[-1].weight *= 0.1
+    # Apply gain to all other layer weights at initialization
+    for layer in layers[:-1]:
+        if isinstance(layer, Linear):
+            layer.weight *= 5/3
+
+# Collect all the parameters
+parameters = [C] + [p for layer in layers for p in layer.parameters()]
+print(sum(p.nelement() for p in parameters)) # total number of parameters in the network
+
+for p in parameters:
+    p.requires_grad = True
+```
+
+## Train the network
+```{python}
+max_steps = 200000
+lossi = []
+
+for i in range(max_steps):
+    # sample indices from minibatch
+    ix = torch.randint(0,xstr.shape[0], (mini_batch_size,), generator = g)
+    Xb, Yb = xstr[ix], ystr[ix]
+
+    # forward pass
+    emb = C[Xb] # embed characters into vectors
+    x = C[Xb].view(emb.shape[0], context_length*embed_size) # concatenate the vecotrs
+    for layer in layers:
+        x = layer(x)
+    loss = F.cross_entropy(x, Yb) # loss function
+
+    # backward pass
+    for p in parameters:
+        p.grad = None
+    loss.backward()
+
+    # update parameters
+    lr = 0.1 if i < 100000 else 0.01 # step learning rate decay
+    for p in parameters:
+        p.data += -lr * p.grad
+
+    # track statistics
+    if i % 10000 == 0:
+        print(f'{i:7d}/{max_steps:7d}: {loss.item():.4f}')
+    lossi.append(loss.log10().item())
+    break
+```
+
+My initial loss is very high, despite using Kaiming initialization. So, I will use some graphs to visualize the statistics at initialization
+
+```{python}
+plt.figure()
+legends = []
+
+for i, layer in enumerate(layers[:-1]):
+    if isinstance(layer, Tanh):
+        t = layer.out
+        print(f'layer {i} ({layer.__class__.__name__}): mean: {t.mean():.2f}, std: {t.std():.2f}, saturated: {(t.abs()>0.97).float().mean()*100:.2f}')
+        hy, hx = torch.histogram(t, density = True)
+        plt.plot(hx[:-1].detach(), hy.detach())
+        legends.append(f'layers {i} ({layer.__class__.__name__})')
+plt.legend(legends)
+plt.title('activation distribution')
+```
 
 # The statistics to monitor at initialization
 ---------------------------------------
