@@ -40,7 +40,7 @@ class Linear:
     def __call__(self, x):
         assert (x.shape[1] == self.weight.shape[0]), "Tensor dimensions of input and weight do not match"
         self.out = x @ self.weight
-        if self.out is not None:
+        if self.bias is not None:
             self.out += self.bias
         return self.out
     
@@ -359,3 +359,147 @@ At initialization, you want all distributions of gradients and activations throu
 
 ## Initialization
 
+```{python}
+g = torch.Generator().manual_seed(624896294)
+# Initialize the embedding layer
+C = torch.randn((vocab_size, embed_size), generator = g)
+layers = [
+    Linear(context_length*embed_size, n_hidden, bias = False), BatchNorm1d(n_hidden), Tanh(),
+    Linear(n_hidden, n_hidden, bias = False), BatchNorm1d(n_hidden), Tanh(),
+    Linear(n_hidden, n_hidden, bias = False), BatchNorm1d(n_hidden), Tanh(),
+    Linear(n_hidden, n_hidden, bias = False), BatchNorm1d(n_hidden), Tanh(),
+    Linear(n_hidden, n_hidden, bias=False), BatchNorm1d(n_hidden), Tanh(),
+    Linear(n_hidden, vocab_size, bias = False), BatchNorm1d(vocab_size),
+]
+
+# Perform proper initialization
+with torch.no_grad():
+    # make last layer less confident
+    # when we are using batchnorm, we would change gamma instead of weight.
+    layers[-1].gamma *= 0.1
+    #layers[-1].weight *= 0.1
+    # Apply gain to all other layer weights at initialization
+    for layer in layers[:-1]:
+        if isinstance(layer, Linear):
+            layer.weight *= 5/3
+
+# Collect all the parameters
+parameters = [C] + [p for layer in layers for p in layer.parameters()]
+print(sum(p.nelement() for p in parameters)) # total number of parameters in the network
+
+for p in parameters:
+    p.requires_grad = True
+
+```
+
+## Train the network
+```{python}
+max_steps = 200000
+lossi = []
+ud = []
+
+for i in range(max_steps):
+    # sample indices from minibatch
+    ix = torch.randint(0,xstr.shape[0], (mini_batch_size,), generator = g)
+    Xb, Yb = xstr[ix], ystr[ix]
+
+    # forward pass
+    emb = C[Xb] # embed characters into vectors
+    x = C[Xb].view(emb.shape[0], context_length*embed_size) # concatenate the vecotrs
+    #print(x)
+    for layer in layers:
+        x = layer(x)
+        #print(x)
+    loss = F.cross_entropy(x, Yb) # loss function
+
+    # backward pass
+    for layer in layers:
+        layer.out.retain_grad() # required for plotting the gradient of the layer output later on. Not required for actual training
+
+    for p in parameters:
+        p.grad = None
+    loss.backward()
+
+    # update parameters
+    lr = 0.2
+    if i < 10000:
+        lr = 0.2 
+    elif 10000 <= i < 50000:
+        lr = lr/10
+    else:
+        lr = lr/100 # step learning rate decay
+    for p in parameters:
+        p.data += -lr * p.grad
+
+    # track statistics
+    if i % 10000 == 0:
+        print(f'{i:7d}/{max_steps:7d}: {loss.item():.4f}')
+    lossi.append(loss.log10().item())
+    #with torch.no_grad():
+    #    ud.append([(lr*p.grad.std() / p.data.std()).log10().item() for p in parameters])
+    
+```
+
+The above neural network is much less sensitive to gain values. Therefore, if we change the gain, the activation and gradient statistics will remain well-behaved, but the update to data ratio will change and we may have to re-tune the learning rate. If we decrease the gain, some layers train faster. if we increase the gain, layers train slower. Think about why that is based on backpropagation through the batch-norm layer.
+
+```{python}
+plt.plot(lossi)
+```
+
+# Evaluate the trained model
+
+- Calculate the loss for selected split of the data - train, dev, or test
+```{python}
+@torch.no_grad() # this decorator disables gradient tracking
+# We can also use a context manager (look this up)
+def calculate_split_loss(split):
+    # get the appropriate x an y based on the desired data split
+    x,y = {
+        "train": (xstr, ystr),
+        "val":(xsdev, ysdev),
+        "test": (xstest, ystest)
+    }[split]
+    x = C[x].view(-1,context_length*embed_size)
+    #xembcat = xemb
+    for layer in layers:
+        if isinstance(layer, BatchNorm1d):
+            layer.training = False
+        x = layer(x)
+    loss = F.cross_entropy(x, y)
+    print(split, loss.item())
+
+calculate_split_loss('train')
+calculate_split_loss('val')
+```
+
+
+# Make predictions
+```{python}
+start_char = "*"
+end_char = "*"
+g = torch.Generator().manual_seed(123434)
+start_ind = stoi[start_char]
+for _ in range(20):
+    context = [start_ind]*context_length
+    all_chars = [start_char]*context_length
+    while True:  
+        # Now context contains the three character indices for our example
+        xp = C[torch.tensor(context)].view(1, -1) # Want to generate just one character at a time.
+        #print(xembp.shape)
+        for layer in layers:
+            if isinstance(layer, BatchNorm1d):
+                layer.training = False
+            xp = layer(xp)
+            #print(x.shape)
+        # Directly use the softmax function to calculate probabilites from logits
+        probsp = F.softmax(xp, dim = 1)
+        ind = torch.multinomial(probsp, num_samples = 1, replacement = True, generator = g)
+        ch = itos[ind.item()]
+        if (ch == end_char):
+            all_chars.append(ch)
+            break
+        else:   
+            all_chars.append(ch)
+            context = context[1:]+[ind.item()]
+    print("".join(all_chars))
+```
