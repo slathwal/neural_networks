@@ -85,6 +85,28 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#import-dependencies" id="toc-import-dependencies" class="nav-link" data-scroll-target="#import-dependencies">Import dependencies</a></li>
   <li><a href="#write-the-layer-modules" id="toc-write-the-layer-modules" class="nav-link" data-scroll-target="#write-the-layer-modules">Write the layer modules</a></li>
   <li><a href="#making-sure-that-classes-are-functioning-correctly" id="toc-making-sure-that-classes-are-functioning-correctly" class="nav-link" data-scroll-target="#making-sure-that-classes-are-functioning-correctly">Making sure that classes are functioning correctly</a></li>
+  <li><a href="#read-the-words-define-the-vocabulary-and-build-mapping-from-vocabulary-to-integers" id="toc-read-the-words-define-the-vocabulary-and-build-mapping-from-vocabulary-to-integers" class="nav-link" data-scroll-target="#read-the-words-define-the-vocabulary-and-build-mapping-from-vocabulary-to-integers">read the words, define the vocabulary and build mapping from vocabulary to integers</a></li>
+  <li><a href="#build-mlp-using-the-above-modules" id="toc-build-mlp-using-the-above-modules" class="nav-link" data-scroll-target="#build-mlp-using-the-above-modules">Build MLP using the above modules</a></li>
+  <li><a href="#build-the-training-data" id="toc-build-the-training-data" class="nav-link" data-scroll-target="#build-the-training-data">Build the training data</a></li>
+  <li><a href="#build-the-neural-network" id="toc-build-the-neural-network" class="nav-link" data-scroll-target="#build-the-neural-network">Build the neural network</a>
+  <ul class="collapse">
+  <li><a href="#intialize" id="toc-intialize" class="nav-link" data-scroll-target="#intialize">Intialize</a></li>
+  <li><a href="#train-the-network" id="toc-train-the-network" class="nav-link" data-scroll-target="#train-the-network">Train the network</a></li>
+  </ul></li>
+  <li><a href="#statistics-to-monitor-at-initialization" id="toc-statistics-to-monitor-at-initialization" class="nav-link" data-scroll-target="#statistics-to-monitor-at-initialization">Statistics to monitor at initialization</a>
+  <ul class="collapse">
+  <li><a href="#look-at-the-saturation-of-the-non-linear-layers" id="toc-look-at-the-saturation-of-the-non-linear-layers" class="nav-link" data-scroll-target="#look-at-the-saturation-of-the-non-linear-layers">Look at the % saturation of the non-linear layers</a></li>
+  <li><a href="#look-at-gradient-values-of-the-non-linear-layers" id="toc-look-at-gradient-values-of-the-non-linear-layers" class="nav-link" data-scroll-target="#look-at-gradient-values-of-the-non-linear-layers">Look at gradient values of the non-linear layers</a></li>
+  <li><a href="#look-at-the-ratio-of-gradient-to-data-for-each-parameter" id="toc-look-at-the-ratio-of-gradient-to-data-for-each-parameter" class="nav-link" data-scroll-target="#look-at-the-ratio-of-gradient-to-data-for-each-parameter">Look at the ratio of gradient to data for each parameter</a></li>
+  <li><a href="#look-at-the-update-to-the-data-ratio" id="toc-look-at-the-update-to-the-data-ratio" class="nav-link" data-scroll-target="#look-at-the-update-to-the-data-ratio">Look at the update to the data ratio</a></li>
+  </ul></li>
+  <li><a href="#lets-introduce-the-batchnorm-layer-in-the-neural-network" id="toc-lets-introduce-the-batchnorm-layer-in-the-neural-network" class="nav-link" data-scroll-target="#lets-introduce-the-batchnorm-layer-in-the-neural-network">let’s introduce the BatchNorm layer in the neural network</a>
+  <ul class="collapse">
+  <li><a href="#initialization" id="toc-initialization" class="nav-link" data-scroll-target="#initialization">Initialization</a></li>
+  <li><a href="#train-the-network-1" id="toc-train-the-network-1" class="nav-link" data-scroll-target="#train-the-network-1">Train the network</a></li>
+  </ul></li>
+  <li><a href="#evaluate-the-trained-model" id="toc-evaluate-the-trained-model" class="nav-link" data-scroll-target="#evaluate-the-trained-model">Evaluate the trained model</a></li>
+  <li><a href="#make-predictions" id="toc-make-predictions" class="nav-link" data-scroll-target="#make-predictions">Make predictions</a></li>
   </ul>
 </nav>
 </div>
@@ -116,7 +138,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Modified</div>
     <div class="quarto-title-meta-contents">
-      <p class="date-modified">June 13, 2025</p>
+      <p class="date-modified">June 14, 2025</p>
     </div>
   </div>
     
@@ -133,87 +155,89 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="import-dependencies" class="level1">
 <h1>Import dependencies</h1>
-<div id="2dcaf5ad" class="cell" data-execution_count="1">
+<div id="e02466ae" class="cell" data-execution_count="1">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch.nn.functional <span class="im">as</span> F</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch.nn.functional <span class="im">as</span> F</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> random</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="write-the-layer-modules" class="level1">
 <h1>Write the layer modules</h1>
-<div id="f0e6ccd3" class="cell" data-execution_count="2">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Linear:</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, fan_in, fan_out, bias <span class="op">=</span> <span class="va">True</span>):</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>. weight <span class="op">=</span> torch.randn(fan_in, fan_out) <span class="op">*</span> (fan_in)<span class="op">**</span><span class="fl">0.5</span> <span class="co"># kaiming initialization for linear layer</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.bias <span class="op">=</span> torch.zeros(fan_out) <span class="cf">if</span> bias <span class="cf">else</span> <span class="va">None</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__repr__</span>(<span class="va">self</span>):</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.bias <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> (<span class="ss">f"Linear Module with weight </span><span class="sc">{</span><span class="va">self</span><span class="sc">.</span>weight<span class="sc">.</span>shape<span class="sc">}</span><span class="ss"> and bias </span><span class="sc">{</span><span class="va">self</span><span class="sc">.</span>bias<span class="sc">.</span>shape<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> (<span class="ss">f"Linear Module with weight tensor of shape </span><span class="sc">{</span><span class="va">self</span><span class="sc">.</span>weight<span class="sc">.</span>shape<span class="sc">}</span><span class="ss"> and no bias"</span>)</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">assert</span> (x.shape[<span class="dv">1</span>] <span class="op">==</span> <span class="va">self</span>.weight.shape[<span class="dv">0</span>]), <span class="st">"Tensor dimensions of input and weight do not match"</span></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.out <span class="op">=</span> x <span class="op">@</span> <span class="va">self</span>.weight</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.out <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.out <span class="op">+=</span> <span class="va">self</span>.bias</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.out</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> parameters(<span class="va">self</span>):</span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [<span class="va">self</span>.weight] <span class="op">+</span> ([<span class="va">self</span>.bias] <span class="cf">if</span> <span class="va">self</span>.bias <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span> <span class="cf">else</span> [])</span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<div id="9fb4d448" class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">624896294</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Linear:</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, fan_in, fan_out, bias <span class="op">=</span> <span class="va">True</span>):</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>. weight <span class="op">=</span> torch.randn((fan_in, fan_out), generator <span class="op">=</span> g) <span class="op">/</span> (fan_in)<span class="op">**</span><span class="fl">0.5</span> <span class="co"># kaiming initialization for linear layer</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.bias <span class="op">=</span> torch.zeros(fan_out) <span class="cf">if</span> bias <span class="cf">else</span> <span class="va">None</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__repr__</span>(<span class="va">self</span>):</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.bias <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> (<span class="ss">f"Linear Module with weight </span><span class="sc">{</span><span class="va">self</span><span class="sc">.</span>weight<span class="sc">.</span>shape<span class="sc">}</span><span class="ss"> and bias </span><span class="sc">{</span><span class="va">self</span><span class="sc">.</span>bias<span class="sc">.</span>shape<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> (<span class="ss">f"Linear Module with weight tensor of shape </span><span class="sc">{</span><span class="va">self</span><span class="sc">.</span>weight<span class="sc">.</span>shape<span class="sc">}</span><span class="ss"> and no bias"</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">assert</span> (x.shape[<span class="dv">1</span>] <span class="op">==</span> <span class="va">self</span>.weight.shape[<span class="dv">0</span>]), <span class="st">"Tensor dimensions of input and weight do not match"</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.out <span class="op">=</span> x <span class="op">@</span> <span class="va">self</span>.weight</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.bias <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.out <span class="op">+=</span> <span class="va">self</span>.bias</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.out</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> parameters(<span class="va">self</span>):</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [<span class="va">self</span>.weight] <span class="op">+</span> ([<span class="va">self</span>.bias] <span class="cf">if</span> <span class="va">self</span>.bias <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span> <span class="cf">else</span> [])</span>
 <span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Tanh:</span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">#def __init__(self): # Do not define __init__ here otherwise there is a strange behaviour where the __call__ function does not work properly.</span></span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">#    pass</span></span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.out <span class="op">=</span> torch.tanh(x)</span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.out</span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> parameters(<span class="va">self</span>):</span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> []</span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> BatchNorm1d:</span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, dim, eps<span class="op">=</span><span class="fl">1e-5</span>, momentum <span class="op">=</span> <span class="fl">0.01</span>):</span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.eps <span class="op">=</span> eps</span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.momentum <span class="op">=</span> momentum</span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.training <span class="op">=</span> <span class="va">True</span> <span class="co"># Training mode on by default</span></span>
-<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>        <span class="co"># parameters trained by backpropagation</span></span>
-<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.gamma <span class="op">=</span> torch.ones(dim)</span>
-<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.beta <span class="op">=</span> torch.zeros(dim)</span>
-<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>        <span class="co"># buffers</span></span>
-<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.running_mean <span class="op">=</span> torch.zeros(dim)</span>
-<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.running_var <span class="op">=</span> torch.ones(dim)</span>
-<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
-<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>        <span class="co"># calculate the forward pass</span></span>
-<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.training:</span>
-<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>            xmean <span class="op">=</span> x.mean(<span class="dv">0</span>, keepdim <span class="op">=</span> <span class="va">True</span>)</span>
-<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>            xvar <span class="op">=</span> x.var(<span class="dv">0</span>, keepdim <span class="op">=</span> <span class="va">True</span>)</span>
-<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
-<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>            xmean <span class="op">=</span> <span class="va">self</span>.running_mean</span>
-<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>            xvar <span class="op">=</span> <span class="va">self</span>.running_var</span>
-<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>        xhat <span class="op">=</span> (x <span class="op">-</span> xmean)<span class="op">/</span>torch.sqrt(xvar <span class="op">+</span> <span class="va">self</span>.eps)</span>
-<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.out <span class="op">=</span> <span class="va">self</span>.gamma <span class="op">*</span> xhat <span class="op">+</span> <span class="va">self</span>.beta</span>
-<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>        <span class="co"># update buffers when in training mode</span></span>
-<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.training:</span>
-<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>            <span class="cf">with</span> torch.no_grad():</span>
-<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>                <span class="va">self</span>.running_mean <span class="op">=</span> (<span class="dv">1</span><span class="op">-</span><span class="va">self</span>.momentum) <span class="op">*</span> <span class="va">self</span>.running_mean <span class="op">+</span> <span class="va">self</span>.momentum <span class="op">*</span> xmean</span>
-<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>                <span class="va">self</span>.running_var <span class="op">=</span> (<span class="dv">1</span><span class="op">-</span><span class="va">self</span>.momentum) <span class="op">*</span> <span class="va">self</span>.running_var <span class="op">+</span> <span class="va">self</span>.momentum <span class="op">*</span> xvar</span>
-<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.out</span>
-<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> parameters(<span class="va">self</span>):</span>
-<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [<span class="va">self</span>.gamma, <span class="va">self</span>.beta]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Tanh:</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">#def __init__(self): # Do not define __init__ here otherwise there is a strange behaviour where the __call__ function does not work properly.</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="co">#    pass</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.out <span class="op">=</span> torch.tanh(x)</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.out</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> parameters(<span class="va">self</span>):</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> []</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> BatchNorm1d:</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, dim, eps<span class="op">=</span><span class="fl">1e-5</span>, momentum <span class="op">=</span> <span class="fl">0.01</span>):</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.eps <span class="op">=</span> eps</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.momentum <span class="op">=</span> momentum</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.training <span class="op">=</span> <span class="va">True</span> <span class="co"># Training mode on by default</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="co"># parameters trained by backpropagation</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.gamma <span class="op">=</span> torch.ones(dim)</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.beta <span class="op">=</span> torch.zeros(dim)</span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>        <span class="co"># buffers</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.running_mean <span class="op">=</span> torch.zeros(dim)</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.running_var <span class="op">=</span> torch.ones(dim)</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, x):</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>        <span class="co"># calculate the forward pass</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.training:</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>            xmean <span class="op">=</span> x.mean(<span class="dv">0</span>, keepdim <span class="op">=</span> <span class="va">True</span>)</span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>            xvar <span class="op">=</span> x.var(<span class="dv">0</span>, keepdim <span class="op">=</span> <span class="va">True</span>)</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>            xmean <span class="op">=</span> <span class="va">self</span>.running_mean</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>            xvar <span class="op">=</span> <span class="va">self</span>.running_var</span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>        xhat <span class="op">=</span> (x <span class="op">-</span> xmean)<span class="op">/</span>torch.sqrt(xvar <span class="op">+</span> <span class="va">self</span>.eps)</span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.out <span class="op">=</span> <span class="va">self</span>.gamma <span class="op">*</span> xhat <span class="op">+</span> <span class="va">self</span>.beta</span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>        <span class="co"># update buffers when in training mode</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.training:</span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>            <span class="cf">with</span> torch.no_grad():</span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>                <span class="va">self</span>.running_mean <span class="op">=</span> (<span class="dv">1</span><span class="op">-</span><span class="va">self</span>.momentum) <span class="op">*</span> <span class="va">self</span>.running_mean <span class="op">+</span> <span class="va">self</span>.momentum <span class="op">*</span> xmean</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>                <span class="va">self</span>.running_var <span class="op">=</span> (<span class="dv">1</span><span class="op">-</span><span class="va">self</span>.momentum) <span class="op">*</span> <span class="va">self</span>.running_var <span class="op">+</span> <span class="va">self</span>.momentum <span class="op">*</span> xvar</span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.out</span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> parameters(<span class="va">self</span>):</span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [<span class="va">self</span>.gamma, <span class="va">self</span>.beta]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="making-sure-that-classes-are-functioning-correctly" class="level1">
 <h1>Making sure that classes are functioning correctly</h1>
-<div id="25021a28" class="cell" data-execution_count="3">
+<div id="80a16156" class="cell" data-execution_count="3">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>layer <span class="op">=</span> Linear(<span class="dv">10</span>, <span class="dv">100</span>)</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>x <span class="op">=</span> torch.randn(<span class="dv">1</span>,<span class="dv">10</span>)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>x</span>
@@ -224,35 +248,33 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>layer.out</span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>layer(x)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="3">
-<pre><code>tensor([[  9.7977, -16.9599,  -6.9946,  10.3406, -16.2243,   2.7980,  13.0887,
-          -0.0889,  -7.4045,   0.9374,  10.4790,  17.3031,   7.4304,   1.8384,
-           4.2763, -14.1218,  14.8149, -11.4716,   3.8771,  -1.6197,  -5.5843,
-          -6.6334,  16.6983,   3.3026,   3.3565,  19.5034,  -3.0838,   4.3766,
-          -8.9975,  17.3087,  -8.0671,  -9.0709,  24.3228,  -2.4296, -19.1864,
-          13.2139,   2.2094,  -5.5002,  17.4503,  -8.8344, -10.7357,   7.5856,
-          -3.4848,  -6.3480, -26.5051, -11.1793,  -8.0350, -14.4822,  13.0144,
-          11.1206,   2.0844, -10.6348,  -9.8966,   2.8018,  -9.4035, -16.4257,
-          16.4714,  -9.9937,  -7.3414,   3.3551,  -7.7149,   4.0567,   1.0138,
-          -6.7621,  -2.7504,  11.6162,  -6.9258,  -7.1548,  13.5138, -24.8146,
-         -16.7990,  -0.9803,  -9.7319,  -9.2865,  -2.5443, -13.5261, -11.0601,
-          -4.4506, -15.5046,  15.5326,  13.4679,  -6.5476,   6.8768,   8.3866,
-          -3.8259,   7.2582,  -7.2806,  -0.1156,  -8.4099,  18.7094,  -6.5384,
-           2.0283,   0.7522,  -6.6413, -19.1200,   0.1629,  -1.7270,  -1.9345,
-          11.6120,   9.2332]])</code></pre>
+<pre><code>tensor([[ 1.5364,  1.1008,  0.6801, -0.8732, -0.0804,  0.3588, -0.0735, -0.5866,
+         -1.5123, -0.1502, -0.2993,  0.7791,  0.5864,  0.3464, -0.3647,  0.0086,
+          0.3059,  0.4902, -1.0106,  0.7067, -1.1972,  1.6645,  1.1225,  1.6618,
+         -0.2274,  1.3328,  0.3443, -0.9262, -2.4219,  0.4966, -0.4448, -1.1617,
+         -1.3011,  3.4188, -1.5425, -1.8543,  1.5152,  0.5720,  2.4803, -0.6724,
+         -0.1238,  0.3791,  0.7917,  0.4689,  1.2362, -0.6892,  2.5524, -0.9662,
+         -0.8996, -2.2958,  0.0580, -1.1694, -0.2603,  0.5632,  1.9475,  0.9060,
+         -1.1393, -0.1243,  0.9186, -0.7670,  1.1097, -0.2054,  0.7202,  0.9093,
+          0.7103, -1.6958,  1.1773, -0.2015, -0.1030, -0.2015,  0.2047,  1.3206,
+          0.9013, -0.9005, -1.8694, -1.7359,  0.8012,  0.9783,  2.3940,  0.3321,
+          1.6756, -1.5495, -1.8920,  0.3881,  2.0707,  0.9948,  1.4697, -1.8040,
+          0.4849, -0.5953, -1.8364, -2.1612, -0.8750,  0.9375, -2.5965, -0.9478,
+         -0.2767,  0.5670, -1.0999,  0.7404]])</code></pre>
 </div>
 </div>
-<div id="1601a387" class="cell" data-execution_count="4">
+<div id="011fbe5a" class="cell" data-execution_count="4">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>layer <span class="op">=</span> Tanh()</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>linear_o <span class="op">=</span> layer(x)</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>linear_o</span>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">#layer.parameters()</span></span>
 <span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>layer(x)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display" data-execution_count="4">
-<pre><code>tensor([[ 9.1596e-01, -2.3022e-01, -6.7195e-04,  5.9948e-01, -4.7112e-01,
-          9.6621e-01, -2.4778e-01, -8.1745e-01, -3.0146e-02,  7.3888e-01]])</code></pre>
+<pre><code>tensor([[ 0.8256,  0.0634, -0.4017,  0.5966, -0.7783, -0.5697,  0.9567, -0.3762,
+          0.9936,  0.3960]])</code></pre>
 </div>
 </div>
-<div id="4600bee3" class="cell" data-execution_count="5">
+<div id="5b02484d" class="cell" data-execution_count="5">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>layer <span class="op">=</span> BatchNorm1d(dim <span class="op">=</span> <span class="dv">15</span>) <span class="co"># dim = number of neurons in the layer. a mean and variance will be calculated for each neuron by taking values from the whole mini-batch</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>layer.__class__</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>x <span class="op">=</span> torch.randn(<span class="dv">10</span>, <span class="dv">15</span>) <span class="co"># The second dimension here must match the dim parameters of the BatchNorm1d layer.</span></span>
@@ -262,18 +284,531 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(x.var(dim <span class="op">=</span> <span class="dv">0</span>, keepdim<span class="op">=</span><span class="va">True</span>), layer.running_var, sep <span class="op">=</span> <span class="st">"</span><span class="ch">\n</span><span class="st">"</span>)</span>
 <span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="bu">len</span>(layer.parameters()), <span class="bu">sum</span>(p.nelement() <span class="cf">for</span> p <span class="kw">in</span> layer.parameters())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>tensor([[ 0.0595,  0.1642,  0.1038,  0.0526,  0.0225, -0.0660, -0.5536,  0.5059,
-         -0.3413,  0.3419, -0.2893,  0.2265,  0.0305,  0.0021, -0.0341]])
-tensor([[ 5.9481e-04,  1.6419e-03,  1.0382e-03,  5.2585e-04,  2.2523e-04,
-         -6.5986e-04, -5.5357e-03,  5.0590e-03, -3.4130e-03,  3.4186e-03,
-         -2.8933e-03,  2.2647e-03,  3.0533e-04,  2.0815e-05, -3.4052e-04]])
-tensor([[1.2188, 1.5612, 1.1042, 0.6374, 0.8182, 0.9415, 0.8811, 1.4037, 0.6684,
-         0.3765, 0.8265, 0.7008, 0.6681, 0.4971, 0.6029]])
-tensor([[1.0022, 1.0056, 1.0010, 0.9964, 0.9982, 0.9994, 0.9988, 1.0040, 0.9967,
-         0.9938, 0.9983, 0.9970, 0.9967, 0.9950, 0.9960]])</code></pre>
+<pre><code>tensor([[-0.0813,  0.1492, -0.0351, -0.1641,  0.0820,  0.0047, -0.3797,  0.0486,
+         -0.0100,  0.3744,  0.1040, -0.3042, -0.1230, -0.1558,  0.1535]])
+tensor([[-8.1280e-04,  1.4920e-03, -3.5149e-04, -1.6408e-03,  8.2001e-04,
+          4.7139e-05, -3.7967e-03,  4.8633e-04, -1.0007e-04,  3.7441e-03,
+          1.0404e-03, -3.0420e-03, -1.2295e-03, -1.5577e-03,  1.5353e-03]])
+tensor([[0.9169, 0.6258, 0.5444, 0.6365, 2.0632, 1.6782, 0.9885, 1.5326, 1.2594,
+         1.3816, 0.7351, 1.3348, 0.9305, 0.2655, 0.6597]])
+tensor([[0.9992, 0.9963, 0.9954, 0.9964, 1.0106, 1.0068, 0.9999, 1.0053, 1.0026,
+         1.0038, 0.9974, 1.0033, 0.9993, 0.9927, 0.9966]])</code></pre>
 </div>
 <div class="cell-output cell-output-display" data-execution_count="5">
 <pre><code>(2, 30)</code></pre>
+</div>
+</div>
+</section>
+<section id="read-the-words-define-the-vocabulary-and-build-mapping-from-vocabulary-to-integers" class="level1">
+<h1>read the words, define the vocabulary and build mapping from vocabulary to integers</h1>
+<div id="3221f9af" class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(<span class="st">"data/names.txt"</span>) <span class="im">as</span> <span class="bu">file</span>:</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    words <span class="op">=</span> <span class="bu">file</span>.read().splitlines()</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="bu">len</span>(words)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Build a character vocabulary</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>all_chars <span class="op">=</span> <span class="bu">sorted</span>(<span class="bu">list</span>(<span class="bu">set</span>(<span class="st">''</span>.join(words)<span class="op">+</span><span class="st">"*"</span>)))</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Build a mapping dictionary</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>stoi <span class="op">=</span> {s:i <span class="cf">for</span> i,s <span class="kw">in</span> <span class="bu">enumerate</span>(all_chars)}</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>itos <span class="op">=</span> {i:s <span class="cf">for</span> s,i <span class="kw">in</span> stoi.items()}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="build-mlp-using-the-above-modules" class="level1">
+<h1>Build MLP using the above modules</h1>
+<div id="767d1fc2" class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>n_hidden <span class="op">=</span> <span class="dv">100</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>embed_size <span class="op">=</span> <span class="dv">10</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>vocab_size <span class="op">=</span> <span class="bu">len</span>(all_chars)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>mini_batch_size <span class="op">=</span> <span class="dv">32</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>context_length <span class="op">=</span> <span class="dv">3</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="build-the-training-data" class="level1">
+<h1>Build the training data</h1>
+<div id="e5ee3345" class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> build_dataset(words):</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    xs <span class="op">=</span> []</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    ys <span class="op">=</span> []</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> word <span class="kw">in</span> words:</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>        context <span class="op">=</span> [<span class="st">'*'</span>]<span class="op">*</span>context_length</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>        chs <span class="op">=</span> word<span class="op">+</span><span class="st">'*'</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">#ch_list = [ch for ch in chs]</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">#print(ch_list)</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> ch <span class="kw">in</span> chs:</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>            <span class="co">#print(ch)</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>            <span class="co">#print(''.join(context), ch)</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>            xs.append([stoi[s] <span class="cf">for</span> s <span class="kw">in</span> context])</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>            ys.append(stoi[ch])</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>            context <span class="op">=</span> context[<span class="dv">1</span>:]<span class="op">+</span>[ch]</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>    xs <span class="op">=</span> torch.tensor(xs)</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>    ys <span class="op">=</span> torch.tensor(ys)</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> xs, ys</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>random.shuffle(words)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>n1 <span class="op">=</span> <span class="bu">int</span>(<span class="fl">0.8</span><span class="op">*</span><span class="bu">len</span>(words))</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>n2 <span class="op">=</span> <span class="bu">int</span>(<span class="fl">0.9</span><span class="op">*</span><span class="bu">len</span>(words))</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>n1, n2</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>xstr, ystr <span class="op">=</span> build_dataset(words[:n1])</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>xsdev, ysdev <span class="op">=</span> build_dataset(words[n1:n2])</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>xstest, ystest <span class="op">=</span> build_dataset(words[n2:])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div id="859246f5" class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>ystr[:<span class="dv">10</span>], xstr[:<span class="dv">10</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="9">
+<pre><code>(tensor([10,  4, 13, 18, 17, 12,  1, 25,  4, 22]),
+ tensor([[ 1,  1,  1],
+         [ 1,  1, 10],
+         [ 1, 10,  4],
+         [10,  4, 13],
+         [ 4, 13, 18],
+         [13, 18, 17],
+         [18, 17, 12],
+         [ 1,  1,  1],
+         [ 1,  1, 25],
+         [ 1, 25,  4]]))</code></pre>
+</div>
+</div>
+</section>
+<section id="build-the-neural-network" class="level1">
+<h1>Build the neural network</h1>
+<section id="intialize" class="level2">
+<h2 class="anchored" data-anchor-id="intialize">Intialize</h2>
+<div id="88ac86ab" class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize the embedding layer</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> torch.randn((vocab_size, embed_size), generator <span class="op">=</span> g)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>layers <span class="op">=</span> [</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    Linear(context_length<span class="op">*</span>embed_size, n_hidden), Tanh(),</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    Linear(n_hidden, n_hidden), Tanh(),</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    Linear(n_hidden, n_hidden), Tanh(),</span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    Linear(n_hidden, n_hidden), Tanh(),</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>    Linear(n_hidden, n_hidden), Tanh(),</span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>    Linear(n_hidden, vocab_size),</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Perform proper initialization</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> torch.no_grad():</span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>    <span class="co"># make last layer less confident</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>    layers[<span class="op">-</span><span class="dv">1</span>].weight <span class="op">*=</span> <span class="fl">0.1</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Apply gain to all other layer weights at initialization</span></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> layer <span class="kw">in</span> layers[:<span class="op">-</span><span class="dv">1</span>]:</span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">isinstance</span>(layer, Linear):</span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>            layer.weight <span class="op">*=</span> <span class="dv">5</span><span class="op">/</span><span class="dv">3</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Collect all the parameters</span></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>parameters <span class="op">=</span> [C] <span class="op">+</span> [p <span class="cf">for</span> layer <span class="kw">in</span> layers <span class="cf">for</span> p <span class="kw">in</span> layer.parameters()]</span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="bu">sum</span>(p.nelement() <span class="cf">for</span> p <span class="kw">in</span> parameters)) <span class="co"># total number of parameters in the network</span></span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>    p.requires_grad <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a><span class="co"># for layer in layers[0:1]:</span></span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a><span class="co">#     print(layer.weight)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>46830</code></pre>
+</div>
+</div>
+</section>
+<section id="train-the-network" class="level2">
+<h2 class="anchored" data-anchor-id="train-the-network">Train the network</h2>
+<div id="9843203d" class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>max_steps <span class="op">=</span> <span class="dv">200000</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>lossi <span class="op">=</span> []</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>ud <span class="op">=</span> []</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(max_steps):</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    <span class="co"># sample indices from minibatch</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    ix <span class="op">=</span> torch.randint(<span class="dv">0</span>,xstr.shape[<span class="dv">0</span>], (mini_batch_size,), generator <span class="op">=</span> g)</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    Xb, Yb <span class="op">=</span> xstr[ix], ystr[ix]</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># forward pass</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>    emb <span class="op">=</span> C[Xb] <span class="co"># embed characters into vectors</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> C[Xb].view(emb.shape[<span class="dv">0</span>], context_length<span class="op">*</span>embed_size) <span class="co"># concatenate the vecotrs</span></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">#print(x)</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> layer <span class="kw">in</span> layers:</span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> layer(x)</span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">#print(x)</span></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> F.cross_entropy(x, Yb) <span class="co"># loss function</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># backward pass</span></span>
+<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> layer <span class="kw">in</span> layers:</span>
+<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>        layer.out.retain_grad() <span class="co"># required for plotting the gradient of the layer output later on. Not required for actual training</span></span>
+<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>        p.grad <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>    loss.backward()</span>
+<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a>    <span class="co"># update parameters</span></span>
+<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a>    lr <span class="op">=</span> <span class="fl">0.2</span></span>
+<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">&lt;</span> <span class="dv">10000</span>:</span>
+<span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> <span class="fl">0.2</span> </span>
+<span id="cb17-31"><a href="#cb17-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> <span class="dv">10000</span> <span class="op">&lt;=</span> i <span class="op">&lt;</span> <span class="dv">50000</span>:</span>
+<span id="cb17-32"><a href="#cb17-32" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> lr<span class="op">/</span><span class="dv">10</span></span>
+<span id="cb17-33"><a href="#cb17-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb17-34"><a href="#cb17-34" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> lr<span class="op">/</span><span class="dv">100</span> <span class="co"># step learning rate decay</span></span>
+<span id="cb17-35"><a href="#cb17-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb17-36"><a href="#cb17-36" aria-hidden="true" tabindex="-1"></a>        p.data <span class="op">+=</span> <span class="op">-</span>lr <span class="op">*</span> p.grad</span>
+<span id="cb17-37"><a href="#cb17-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-38"><a href="#cb17-38" aria-hidden="true" tabindex="-1"></a>    <span class="co"># track statistics</span></span>
+<span id="cb17-39"><a href="#cb17-39" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">%</span> <span class="dv">10000</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb17-40"><a href="#cb17-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'</span><span class="sc">{</span>i<span class="sc">:7d}</span><span class="ss">/</span><span class="sc">{</span>max_steps<span class="sc">:7d}</span><span class="ss">: </span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">:.4f}</span><span class="ss">'</span>)</span>
+<span id="cb17-41"><a href="#cb17-41" aria-hidden="true" tabindex="-1"></a>    lossi.append(loss.log10().item())</span>
+<span id="cb17-42"><a href="#cb17-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">with</span> torch.no_grad():</span>
+<span id="cb17-43"><a href="#cb17-43" aria-hidden="true" tabindex="-1"></a>        ud.append([(lr<span class="op">*</span>p.grad.std() <span class="op">/</span> p.data.std()).log10().item() <span class="cf">for</span> p <span class="kw">in</span> parameters])</span>
+<span id="cb17-44"><a href="#cb17-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">&gt;</span> <span class="dv">20000</span>:</span>
+<span id="cb17-45"><a href="#cb17-45" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      0/ 200000: 3.3961
+  10000/ 200000: 2.2095
+  20000/ 200000: 2.0469</code></pre>
+</div>
+</div>
+<p>My initial loss is very high, despite using Kaiming initialization. So, I will use some graphs to visualize the statistics at initialization. I discovered a big where instead of dividing by a factor of <code>sqrt(fan_in)</code>, I was multiplying by that number. Therefore, all my tanh outputs were saturated.</p>
+</section>
+</section>
+<section id="statistics-to-monitor-at-initialization" class="level1">
+<h1>Statistics to monitor at initialization</h1>
+<section id="look-at-the-saturation-of-the-non-linear-layers" class="level2">
+<h2 class="anchored" data-anchor-id="look-at-the-saturation-of-the-non-linear-layers">Look at the % saturation of the non-linear layers</h2>
+<div id="5a6e964f" class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>plt.figure()</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>legends <span class="op">=</span> []</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, layer <span class="kw">in</span> <span class="bu">enumerate</span>(layers[:<span class="op">-</span><span class="dv">1</span>]):</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">isinstance</span>(layer, Tanh):</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>        t <span class="op">=</span> layer.out</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">#print(t.shape)</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'layer </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>layer<span class="sc">.</span>__class__<span class="sc">.</span><span class="va">__name__</span><span class="sc">}</span><span class="ss">): mean: </span><span class="sc">{</span>t<span class="sc">.</span>mean()<span class="sc">:.2f}</span><span class="ss">, std: </span><span class="sc">{</span>t<span class="sc">.</span>std()<span class="sc">:.2f}</span><span class="ss">, saturated: </span><span class="sc">{</span>(t.<span class="bu">abs</span>()<span class="op">&gt;</span><span class="fl">0.97</span>)<span class="sc">.</span><span class="bu">float</span>()<span class="sc">.</span>mean()<span class="op">*</span><span class="dv">100</span><span class="sc">:.2f}</span><span class="ss">'</span>)</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>        hy, hx <span class="op">=</span> torch.histogram(t, density <span class="op">=</span> <span class="va">True</span>)</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>        plt.plot(hx[:<span class="op">-</span><span class="dv">1</span>].detach(), hy.detach())</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>        legends.append(<span class="ss">f'layers </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>layer<span class="sc">.</span>__class__<span class="sc">.</span><span class="va">__name__</span><span class="sc">}</span><span class="ss">)'</span>)</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>plt.legend(legends)</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">'activation distribution'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>layer 1 (Tanh): mean: -0.02, std: 0.79, saturated: 26.06
+layer 3 (Tanh): mean: -0.03, std: 0.83, saturated: 34.06
+layer 5 (Tanh): mean: 0.03, std: 0.85, saturated: 39.28
+layer 7 (Tanh): mean: -0.03, std: 0.86, saturated: 42.06
+layer 9 (Tanh): mean: -0.00, std: 0.70, saturated: 18.00</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="12">
+<pre><code>Text(0.5, 1.0, 'activation distribution')</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v4_files/figure-html/cell-13-output-3.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="look-at-gradient-values-of-the-non-linear-layers" class="level2">
+<h2 class="anchored" data-anchor-id="look-at-gradient-values-of-the-non-linear-layers">Look at gradient values of the non-linear layers</h2>
+<p>We are looking to see if there is a nice distribution of gradients and that all gradients shouldn’t be squashed or too spread out.</p>
+<div id="fba65e63" class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>plt.figure()</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>legends <span class="op">=</span> []</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, layer <span class="kw">in</span> <span class="bu">enumerate</span>(layers[:<span class="op">-</span><span class="dv">1</span>]):</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">isinstance</span>(layer, Tanh):</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>        t <span class="op">=</span> layer.out.grad</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">#print(t)</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">#print(t.shape)</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'layer </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>layer<span class="sc">.</span>__class__<span class="sc">.</span><span class="va">__name__</span><span class="sc">}</span><span class="ss">): mean: </span><span class="sc">{</span>t<span class="sc">.</span>mean()<span class="sc">:+f}</span><span class="ss">, std: </span><span class="sc">{</span>t<span class="sc">.</span>std()<span class="sc">:e}</span><span class="ss">'</span>)</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>        hy, hx <span class="op">=</span> torch.histogram(t, density <span class="op">=</span> <span class="va">True</span>)</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>        plt.plot(hx[:<span class="op">-</span><span class="dv">1</span>].detach(), hy.detach()) <span class="co"># detach function takes a value out of computational graph</span></span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>        legends.append(<span class="ss">f'layers </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>layer<span class="sc">.</span>__class__<span class="sc">.</span><span class="va">__name__</span><span class="sc">}</span><span class="ss">)'</span>)</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>plt.legend(legends)</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">'layer gradient distribution'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>layer 1 (Tanh): mean: -0.000043, std: 2.312703e-03
+layer 3 (Tanh): mean: +0.000039, std: 2.158476e-03
+layer 5 (Tanh): mean: +0.000001, std: 2.411143e-03
+layer 7 (Tanh): mean: +0.000080, std: 3.095581e-03
+layer 9 (Tanh): mean: +0.000001, std: 3.749688e-03</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="13">
+<pre><code>Text(0.5, 1.0, 'layer gradient distribution')</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v4_files/figure-html/cell-14-output-3.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="look-at-the-ratio-of-gradient-to-data-for-each-parameter" class="level2">
+<h2 class="anchored" data-anchor-id="look-at-the-ratio-of-gradient-to-data-for-each-parameter">Look at the ratio of gradient to data for each parameter</h2>
+<div id="097188b2" class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>plt.figure()</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>legends <span class="op">=</span> []</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i,p <span class="kw">in</span> <span class="bu">enumerate</span>(parameters):</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    t <span class="op">=</span> p.grad</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> p.ndim <span class="op">==</span> <span class="dv">2</span>: <span class="co"># Only look at weights parameters which are 2-D, and not biases- </span></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'weight </span><span class="sc">{</span>p<span class="sc">.</span>shape<span class="sc">}</span><span class="ss">, mean </span><span class="sc">{</span>t<span class="sc">.</span>mean()<span class="sc">:+f}</span><span class="ss">, std </span><span class="sc">{</span>t<span class="sc">.</span>std()<span class="sc">:e}</span><span class="ss">, grad:data ratio </span><span class="sc">{</span>t<span class="sc">.</span>std()<span class="op">/</span>p<span class="sc">.</span>std()<span class="sc">:e}</span><span class="ss">'</span>)</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>        hy, hx <span class="op">=</span> torch.histogram(t, density <span class="op">=</span> <span class="va">True</span>)</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>        plt.plot(hx[:<span class="op">-</span><span class="dv">1</span>].detach(), hy.detach()) <span class="co"># detach function takes a value out of computational graph</span></span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>        legends.append(<span class="ss">f'</span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>p<span class="sc">.</span>shape<span class="sc">}</span><span class="ss">)'</span>)</span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>plt.legend(legends)</span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">'weights gradient distribution'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>weight torch.Size([30, 10]), mean +0.000076, std 9.525701e-03, grad:data ratio 9.600798e-03
+weight torch.Size([30, 100]), mean -0.000169, std 6.024467e-03, grad:data ratio 1.725856e-02
+weight torch.Size([100, 100]), mean -0.000057, std 4.317877e-03, grad:data ratio 2.183542e-02
+weight torch.Size([100, 100]), mean -0.000029, std 4.603472e-03, grad:data ratio 2.341276e-02
+weight torch.Size([100, 100]), mean -0.000048, std 5.444612e-03, grad:data ratio 2.830733e-02
+weight torch.Size([100, 100]), mean +0.000136, std 7.210550e-03, grad:data ratio 4.183877e-02
+weight torch.Size([100, 30]), mean -0.000000, std 2.175156e-02, grad:data ratio 1.624523e-01</code></pre>
+</div>
+<div class="cell-output cell-output-display" data-execution_count="14">
+<pre><code>Text(0.5, 1.0, 'weights gradient distribution')</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v4_files/figure-html/cell-15-output-3.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="look-at-the-update-to-the-data-ratio" class="level2">
+<h2 class="anchored" data-anchor-id="look-at-the-update-to-the-data-ratio">Look at the update to the data ratio</h2>
+<div id="935f558a" class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>plt.figure()</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>legends <span class="op">=</span> []</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i,p <span class="kw">in</span> <span class="bu">enumerate</span>(parameters):</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>    t <span class="op">=</span> p.grad</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> p.ndim <span class="op">==</span> <span class="dv">2</span>: <span class="co"># Only look at weights parameters which are 2-D, and not biases- </span></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>        plt.plot([ud[j][i] <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(ud))])</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>        legends.append(<span class="ss">f'param </span><span class="sc">{</span>i<span class="sc">:d}</span><span class="ss">'</span>)</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>plt.plot([<span class="dv">0</span>, <span class="bu">len</span>(ud)], [<span class="op">-</span><span class="dv">3</span>, <span class="op">-</span><span class="dv">3</span>], <span class="st">'k'</span>) <span class="co"># these ratios should be ~1e-3</span></span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>plt.legend(legends)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v4_files/figure-html/cell-16-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<ul>
+<li><p>If we have no tanh layer, the correct gain for weights of each layer would be 1.</p></li>
+<li><p>If gradients are too large compared to the data, then we would have a problem because we are updating the data with some fraction of the gradient.</p></li>
+<li><p>If weights at initialization are high in one layer compared to other layers, then we would be training that layer faster compared to other layers, because it’s gradients would also be larger.</p></li>
+<li><p>The ratio of update to data should not be too much above 1e-3. If it’s below 1e-3, it means our learning rate is too low. So for 10,000 iterations, our learning rate is too low.</p></li>
+</ul>
+<p>To summarize: At initialization, you want all distributions of gradients and activations throughout all layers of neural network to be roughly Gaussian. - distribution of activations in the forward pass and % saturated values output from each non-linear layer. - distributions of the gradients flowing back through each non-linear layer. - distribution of gradient/data ratio in each layer during backward pass as well as mean and std of gradients - distribution of ratio of update value with the parameter value at each iteration.</p>
+</section>
+</section>
+<section id="lets-introduce-the-batchnorm-layer-in-the-neural-network" class="level1">
+<h1>let’s introduce the BatchNorm layer in the neural network</h1>
+<section id="initialization" class="level2">
+<h2 class="anchored" data-anchor-id="initialization">Initialization</h2>
+<div id="1e470a88" class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">624896294</span>)</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Initialize the embedding layer</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>C <span class="op">=</span> torch.randn((vocab_size, embed_size), generator <span class="op">=</span> g)</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>layers <span class="op">=</span> [</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>    Linear(context_length<span class="op">*</span>embed_size, n_hidden, bias <span class="op">=</span> <span class="va">False</span>), BatchNorm1d(n_hidden), Tanh(),</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>    Linear(n_hidden, n_hidden, bias <span class="op">=</span> <span class="va">False</span>), BatchNorm1d(n_hidden), Tanh(),</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>    Linear(n_hidden, n_hidden, bias <span class="op">=</span> <span class="va">False</span>), BatchNorm1d(n_hidden), Tanh(),</span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>    Linear(n_hidden, n_hidden, bias <span class="op">=</span> <span class="va">False</span>), BatchNorm1d(n_hidden), Tanh(),</span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>    Linear(n_hidden, n_hidden, bias<span class="op">=</span><span class="va">False</span>), BatchNorm1d(n_hidden), Tanh(),</span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>    Linear(n_hidden, vocab_size, bias <span class="op">=</span> <span class="va">False</span>), BatchNorm1d(vocab_size),</span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Perform proper initialization</span></span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> torch.no_grad():</span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># make last layer less confident</span></span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># when we are using batchnorm, we would change gamma instead of weight.</span></span>
+<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a>    layers[<span class="op">-</span><span class="dv">1</span>].gamma <span class="op">*=</span> <span class="fl">0.1</span></span>
+<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">#layers[-1].weight *= 0.1</span></span>
+<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Apply gain to all other layer weights at initialization</span></span>
+<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> layer <span class="kw">in</span> layers[:<span class="op">-</span><span class="dv">1</span>]:</span>
+<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">isinstance</span>(layer, Linear):</span>
+<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a>            layer.weight <span class="op">*=</span> <span class="dv">5</span><span class="op">/</span><span class="dv">3</span></span>
+<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-24"><a href="#cb29-24" aria-hidden="true" tabindex="-1"></a><span class="co"># Collect all the parameters</span></span>
+<span id="cb29-25"><a href="#cb29-25" aria-hidden="true" tabindex="-1"></a>parameters <span class="op">=</span> [C] <span class="op">+</span> [p <span class="cf">for</span> layer <span class="kw">in</span> layers <span class="cf">for</span> p <span class="kw">in</span> layer.parameters()]</span>
+<span id="cb29-26"><a href="#cb29-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="bu">sum</span>(p.nelement() <span class="cf">for</span> p <span class="kw">in</span> parameters)) <span class="co"># total number of parameters in the network</span></span>
+<span id="cb29-27"><a href="#cb29-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-28"><a href="#cb29-28" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb29-29"><a href="#cb29-29" aria-hidden="true" tabindex="-1"></a>    p.requires_grad <span class="op">=</span> <span class="va">True</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>47360</code></pre>
+</div>
+</div>
+</section>
+<section id="train-the-network-1" class="level2">
+<h2 class="anchored" data-anchor-id="train-the-network-1">Train the network</h2>
+<div id="5943bb88" class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>max_steps <span class="op">=</span> <span class="dv">200000</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>lossi <span class="op">=</span> []</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>ud <span class="op">=</span> []</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(max_steps):</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>    <span class="co"># sample indices from minibatch</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>    ix <span class="op">=</span> torch.randint(<span class="dv">0</span>,xstr.shape[<span class="dv">0</span>], (mini_batch_size,), generator <span class="op">=</span> g)</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>    Xb, Yb <span class="op">=</span> xstr[ix], ystr[ix]</span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># forward pass</span></span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>    emb <span class="op">=</span> C[Xb] <span class="co"># embed characters into vectors</span></span>
+<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> C[Xb].view(emb.shape[<span class="dv">0</span>], context_length<span class="op">*</span>embed_size) <span class="co"># concatenate the vecotrs</span></span>
+<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">#print(x)</span></span>
+<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> layer <span class="kw">in</span> layers:</span>
+<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> layer(x)</span>
+<span id="cb31-16"><a href="#cb31-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">#print(x)</span></span>
+<span id="cb31-17"><a href="#cb31-17" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> F.cross_entropy(x, Yb) <span class="co"># loss function</span></span>
+<span id="cb31-18"><a href="#cb31-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-19"><a href="#cb31-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># backward pass</span></span>
+<span id="cb31-20"><a href="#cb31-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> layer <span class="kw">in</span> layers:</span>
+<span id="cb31-21"><a href="#cb31-21" aria-hidden="true" tabindex="-1"></a>        layer.out.retain_grad() <span class="co"># required for plotting the gradient of the layer output later on. Not required for actual training</span></span>
+<span id="cb31-22"><a href="#cb31-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-23"><a href="#cb31-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb31-24"><a href="#cb31-24" aria-hidden="true" tabindex="-1"></a>        p.grad <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb31-25"><a href="#cb31-25" aria-hidden="true" tabindex="-1"></a>    loss.backward()</span>
+<span id="cb31-26"><a href="#cb31-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-27"><a href="#cb31-27" aria-hidden="true" tabindex="-1"></a>    <span class="co"># update parameters</span></span>
+<span id="cb31-28"><a href="#cb31-28" aria-hidden="true" tabindex="-1"></a>    lr <span class="op">=</span> <span class="fl">0.2</span></span>
+<span id="cb31-29"><a href="#cb31-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">&lt;</span> <span class="dv">10000</span>:</span>
+<span id="cb31-30"><a href="#cb31-30" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> <span class="fl">0.2</span> </span>
+<span id="cb31-31"><a href="#cb31-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> <span class="dv">10000</span> <span class="op">&lt;=</span> i <span class="op">&lt;</span> <span class="dv">50000</span>:</span>
+<span id="cb31-32"><a href="#cb31-32" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> lr<span class="op">/</span><span class="dv">10</span></span>
+<span id="cb31-33"><a href="#cb31-33" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb31-34"><a href="#cb31-34" aria-hidden="true" tabindex="-1"></a>        lr <span class="op">=</span> lr<span class="op">/</span><span class="dv">100</span> <span class="co"># step learning rate decay</span></span>
+<span id="cb31-35"><a href="#cb31-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> p <span class="kw">in</span> parameters:</span>
+<span id="cb31-36"><a href="#cb31-36" aria-hidden="true" tabindex="-1"></a>        p.data <span class="op">+=</span> <span class="op">-</span>lr <span class="op">*</span> p.grad</span>
+<span id="cb31-37"><a href="#cb31-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-38"><a href="#cb31-38" aria-hidden="true" tabindex="-1"></a>    <span class="co"># track statistics</span></span>
+<span id="cb31-39"><a href="#cb31-39" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> i <span class="op">%</span> <span class="dv">10000</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb31-40"><a href="#cb31-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f'</span><span class="sc">{</span>i<span class="sc">:7d}</span><span class="ss">/</span><span class="sc">{</span>max_steps<span class="sc">:7d}</span><span class="ss">: </span><span class="sc">{</span>loss<span class="sc">.</span>item()<span class="sc">:.4f}</span><span class="ss">'</span>)</span>
+<span id="cb31-41"><a href="#cb31-41" aria-hidden="true" tabindex="-1"></a>    lossi.append(loss.log10().item())</span>
+<span id="cb31-42"><a href="#cb31-42" aria-hidden="true" tabindex="-1"></a>    <span class="co">#with torch.no_grad():</span></span>
+<span id="cb31-43"><a href="#cb31-43" aria-hidden="true" tabindex="-1"></a>    <span class="co">#    ud.append([(lr*p.grad.std() / p.data.std()).log10().item() for p in parameters])</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      0/ 200000: 3.3802
+  10000/ 200000: 2.0782
+  20000/ 200000: 1.9387
+  30000/ 200000: 2.1621
+  40000/ 200000: 2.2414
+  50000/ 200000: 2.4705
+  60000/ 200000: 2.3154
+  70000/ 200000: 1.6530
+  80000/ 200000: 2.0863
+  90000/ 200000: 1.9013
+ 100000/ 200000: 1.6304
+ 110000/ 200000: 1.8619
+ 120000/ 200000: 2.2639
+ 130000/ 200000: 2.0736
+ 140000/ 200000: 1.8689
+ 150000/ 200000: 2.1420
+ 160000/ 200000: 1.7749
+ 170000/ 200000: 2.1104
+ 180000/ 200000: 2.1352
+ 190000/ 200000: 2.0451</code></pre>
+</div>
+</div>
+<p>The above neural network is much less sensitive to gain values. Therefore, if we change the gain, the activation and gradient statistics will remain well-behaved, but the update to data ratio will change and we may have to re-tune the learning rate. If we decrease the gain, some layers train faster. if we increase the gain, layers train slower. Think about why that is based on backpropagation through the batch-norm layer.</p>
+<div id="8469e094" class="cell" data-execution_count="18">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>plt.plot(lossi)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="character_level_ngram_model_v4_files/figure-html/cell-19-output-1.png" class="img-fluid figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="evaluate-the-trained-model" class="level1">
+<h1>Evaluate the trained model</h1>
+<ul>
+<li>Calculate the loss for selected split of the data - train, dev, or test</li>
+</ul>
+<div id="b633b817" class="cell" data-execution_count="19">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="at">@torch.no_grad</span>() <span class="co"># this decorator disables gradient tracking</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="co"># We can also use a context manager (look this up)</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> calculate_split_loss(split):</span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>    <span class="co"># get the appropriate x an y based on the desired data split</span></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>    x,y <span class="op">=</span> {</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"train"</span>: (xstr, ystr),</span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>        <span class="st">"val"</span>:(xsdev, ysdev),</span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">"test"</span>: (xstest, ystest)</span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>    }[split]</span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> C[x].view(<span class="op">-</span><span class="dv">1</span>,context_length<span class="op">*</span>embed_size)</span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">#xembcat = xemb</span></span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> layer <span class="kw">in</span> layers:</span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">isinstance</span>(layer, BatchNorm1d):</span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a>            layer.training <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>        x <span class="op">=</span> layer(x)</span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a>    loss <span class="op">=</span> F.cross_entropy(x, y)</span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(split, loss.item())</span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a>calculate_split_loss(<span class="st">'train'</span>)</span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a>calculate_split_loss(<span class="st">'val'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>train 1.9233191013336182
+val 1.94981849193573</code></pre>
+</div>
+</div>
+</section>
+<section id="make-predictions" class="level1">
+<h1>Make predictions</h1>
+<div id="e376b62d" class="cell" data-execution_count="20">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>start_char <span class="op">=</span> <span class="st">"*"</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>end_char <span class="op">=</span> <span class="st">"*"</span></span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>g <span class="op">=</span> torch.Generator().manual_seed(<span class="dv">123434</span>)</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>start_ind <span class="op">=</span> stoi[start_char]</span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">20</span>):</span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>    context <span class="op">=</span> [start_ind]<span class="op">*</span>context_length</span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a>    all_chars <span class="op">=</span> [start_char]<span class="op">*</span>context_length</span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="va">True</span>:  </span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Now context contains the three character indices for our example</span></span>
+<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>        xp <span class="op">=</span> C[torch.tensor(context)].view(<span class="dv">1</span>, <span class="op">-</span><span class="dv">1</span>) <span class="co"># Want to generate just one character at a time.</span></span>
+<span id="cb36-11"><a href="#cb36-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">#print(xembp.shape)</span></span>
+<span id="cb36-12"><a href="#cb36-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> layer <span class="kw">in</span> layers:</span>
+<span id="cb36-13"><a href="#cb36-13" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="bu">isinstance</span>(layer, BatchNorm1d):</span>
+<span id="cb36-14"><a href="#cb36-14" aria-hidden="true" tabindex="-1"></a>                layer.training <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb36-15"><a href="#cb36-15" aria-hidden="true" tabindex="-1"></a>            xp <span class="op">=</span> layer(xp)</span>
+<span id="cb36-16"><a href="#cb36-16" aria-hidden="true" tabindex="-1"></a>            <span class="co">#print(x.shape)</span></span>
+<span id="cb36-17"><a href="#cb36-17" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Directly use the softmax function to calculate probabilites from logits</span></span>
+<span id="cb36-18"><a href="#cb36-18" aria-hidden="true" tabindex="-1"></a>        probsp <span class="op">=</span> F.softmax(xp, dim <span class="op">=</span> <span class="dv">1</span>)</span>
+<span id="cb36-19"><a href="#cb36-19" aria-hidden="true" tabindex="-1"></a>        ind <span class="op">=</span> torch.multinomial(probsp, num_samples <span class="op">=</span> <span class="dv">1</span>, replacement <span class="op">=</span> <span class="va">True</span>, generator <span class="op">=</span> g)</span>
+<span id="cb36-20"><a href="#cb36-20" aria-hidden="true" tabindex="-1"></a>        ch <span class="op">=</span> itos[ind.item()]</span>
+<span id="cb36-21"><a href="#cb36-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (ch <span class="op">==</span> end_char):</span>
+<span id="cb36-22"><a href="#cb36-22" aria-hidden="true" tabindex="-1"></a>            all_chars.append(ch)</span>
+<span id="cb36-23"><a href="#cb36-23" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span></span>
+<span id="cb36-24"><a href="#cb36-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:   </span>
+<span id="cb36-25"><a href="#cb36-25" aria-hidden="true" tabindex="-1"></a>            all_chars.append(ch)</span>
+<span id="cb36-26"><a href="#cb36-26" aria-hidden="true" tabindex="-1"></a>            context <span class="op">=</span> context[<span class="dv">1</span>:]<span class="op">+</span>[ind.item()]</span>
+<span id="cb36-27"><a href="#cb36-27" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">""</span>.join(all_chars))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>***tivanshi*
+***kaw*
+***vida*
+***mathvarman*
+***aashathvi*
+***lisharsha*
+***baraj*
+***aswitha*
+***gar*
+***sbithi naly*
+***anosheesh*
+***endusha*
+***bhag*
+***gana*
+***napathuri*
+***shutdhalakiya*
+***yani*
+***tar*
+***gashwaduban*
+***sany*</code></pre>
 </div>
 </div>
 </section>

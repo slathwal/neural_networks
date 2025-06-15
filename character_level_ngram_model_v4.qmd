@@ -25,6 +25,7 @@ import random
 
 # Write the layer modules
 ```{python}
+g = torch.Generator().manual_seed(624896294)
 class Linear:
 
     def __init__(self, fan_in, fan_out, bias = True):
@@ -189,7 +190,7 @@ ystr[:10], xstr[:10]
 
 ## Intialize
 ```{python}
-g = torch.Generator().manual_seed(624896294)
+
 # Initialize the embedding layer
 C = torch.randn((vocab_size, embed_size), generator = g)
 layers = [
