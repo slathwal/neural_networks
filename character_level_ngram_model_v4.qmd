@@ -28,7 +28,7 @@ import random
 class Linear:
 
     def __init__(self, fan_in, fan_out, bias = True):
-        self. weight = torch.randn((fan_in, fan_out), generator = g) * (fan_in)**0.5 # kaiming initialization for linear layer
+        self. weight = torch.randn((fan_in, fan_out), generator = g) / (fan_in)**0.5 # kaiming initialization for linear layer
         self.bias = torch.zeros(fan_out) if bias else None
     
     def __repr__(self):
@@ -216,12 +216,16 @@ print(sum(p.nelement() for p in parameters)) # total number of parameters in the
 
 for p in parameters:
     p.requires_grad = True
+
+# for layer in layers[0:1]:
+#     print(layer.weight)
 ```
 
 ## Train the network
 ```{python}
 max_steps = 200000
 lossi = []
+ud = []
 
 for i in range(max_steps):
     # sample indices from minibatch
@@ -231,17 +235,28 @@ for i in range(max_steps):
     # forward pass
     emb = C[Xb] # embed characters into vectors
     x = C[Xb].view(emb.shape[0], context_length*embed_size) # concatenate the vecotrs
+    #print(x)
     for layer in layers:
         x = layer(x)
+        #print(x)
     loss = F.cross_entropy(x, Yb) # loss function
 
     # backward pass
+    for layer in layers:
+        layer.out.retain_grad() # required for plotting the gradient of the layer output later on. Not required for actual training
+
     for p in parameters:
         p.grad = None
     loss.backward()
 
     # update parameters
-    lr = 0.1 if i < 100000 else 0.01 # step learning rate decay
+    lr = 0.2
+    if i < 10000:
+        lr = 0.2 
+    elif 10000 <= i < 50000:
+        lr = lr/10
+    else:
+        lr = lr/100 # step learning rate decay
     for p in parameters:
         p.data += -lr * p.grad
 
@@ -249,18 +264,27 @@ for i in range(max_steps):
     if i % 10000 == 0:
         print(f'{i:7d}/{max_steps:7d}: {loss.item():.4f}')
     lossi.append(loss.log10().item())
-    break
+    with torch.no_grad():
+        ud.append([(lr*p.grad.std() / p.data.std()).log10().item() for p in parameters])
+    if i > 20000:
+        break
 ```
 
-My initial loss is very high, despite using Kaiming initialization. So, I will use some graphs to visualize the statistics at initialization
+My initial loss is very high, despite using Kaiming initialization. So, I will use some graphs to visualize the statistics at initialization. I discovered a big where instead of dividing by a factor of `sqrt(fan_in)`, I was multiplying by that number. Therefore, all my tanh outputs were saturated.
 
+
+# Statistics to monitor at initialization
+
+## Look at the % saturation of the non-linear layers
 ```{python}
+
 plt.figure()
 legends = []
 
 for i, layer in enumerate(layers[:-1]):
     if isinstance(layer, Tanh):
         t = layer.out
+        #print(t.shape)
         print(f'layer {i} ({layer.__class__.__name__}): mean: {t.mean():.2f}, std: {t.std():.2f}, saturated: {(t.abs()>0.97).float().mean()*100:.2f}')
         hy, hx = torch.histogram(t, density = True)
         plt.plot(hx[:-1].detach(), hy.detach())
@@ -269,12 +293,69 @@ plt.legend(legends)
 plt.title('activation distribution')
 ```
 
-# The statistics to monitor at initialization
----------------------------------------
-TOEDIT
-- distribution of activations in the forward pass
-- distribution of saturated values in each non-linear layer in the forward pass
+## Look at gradient values of the non-linear layers
+We are looking to see if there is a nice distribution of gradients and that all gradients shouldn't be squashed or too spread out.
+```{python}
+plt.figure()
+legends = []
 
+for i, layer in enumerate(layers[:-1]):
+    if isinstance(layer, Tanh):
+        t = layer.out.grad
+        #print(t)
+        #print(t.shape)
+        print(f'layer {i} ({layer.__class__.__name__}): mean: {t.mean():+f}, std: {t.std():e}')
+        hy, hx = torch.histogram(t, density = True)
+        plt.plot(hx[:-1].detach(), hy.detach()) # detach function takes a value out of computational graph
+        legends.append(f'layers {i} ({layer.__class__.__name__})')
+plt.legend(legends)
+plt.title('layer gradient distribution')
+```
+
+## Look at the ratio of gradient to data for each parameter
+```{python}
+plt.figure()
+legends = []
+for i,p in enumerate(parameters):
+    t = p.grad
+    if p.ndim == 2: # Only look at weights parameters which are 2-D, and not biases- 
+        print(f'weight {p.shape}, mean {t.mean():+f}, std {t.std():e}, grad:data ratio {t.std()/p.std():e}')
+        hy, hx = torch.histogram(t, density = True)
+        plt.plot(hx[:-1].detach(), hy.detach()) # detach function takes a value out of computational graph
+        legends.append(f'{i} ({p.shape})')
+plt.legend(legends)
+plt.title('weights gradient distribution')
+```
+
+## Look at the update to the data ratio
+```{python}
+plt.figure()
+legends = []
+for i,p in enumerate(parameters):
+    t = p.grad
+    if p.ndim == 2: # Only look at weights parameters which are 2-D, and not biases- 
+        plt.plot([ud[j][i] for j in range(len(ud))])
+        legends.append(f'param {i:d}')
+plt.plot([0, len(ud)], [-3, -3], 'k') # these ratios should be ~1e-3
+plt.legend(legends)
+```
+
+- If we have no tanh layer, the correct gain for weights of each layer would be 1.
+
+- If gradients are too large compared to the data, then we would have a problem because we are updating the data with some fraction of the gradient.
+
+- If weights at initialization are high in one layer compared to other layers, then we would be training that layer faster compared to other layers, because it's gradients would also be larger.
+
+- The ratio of update to data should not be too much above 1e-3. If it's below 1e-3, it means our learning rate is too low. So for 10,000 iterations, our learning rate is too low.
+
+To summarize:
+At initialization, you want all distributions of gradients and activations throughout all layers of neural network to be roughly Gaussian.
+- distribution of activations in the forward pass and % saturated values output from each non-linear layer.
+- distributions of the gradients flowing back through each non-linear layer.
 - distribution of gradient/data ratio in each layer during backward pass as well as mean and std of gradients
 - distribution of ratio of update value with the parameter value at each iteration.
+
+# let's introduce the BatchNorm layer in the neural network
+
+## Initialization
 
