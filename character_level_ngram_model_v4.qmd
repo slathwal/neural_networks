@@ -29,7 +29,7 @@ g = torch.Generator().manual_seed(624896294)
 class Linear:
 
     def __init__(self, fan_in, fan_out, bias = True):
-        self. weight = torch.randn((fan_in, fan_out), generator = g) / (fan_in)**0.5 # kaiming initialization for linear layer
+        self. weight = torch.randn((fan_in, fan_out)) / (fan_in)**0.5 # kaiming initialization for linear layer
         self.bias = torch.zeros(fan_out) if bias else None
     
     def __repr__(self):
@@ -400,7 +400,7 @@ At initialization, you want all distributions of gradients and activations throu
 ## Initialization
 
 ```{python}
-g = torch.Generator().manual_seed(624896294)
+torch.manual_seed(42) # We can set manual seed like this as well instead of a generator
 # Initialize the embedding layer
 #C = torch.randn((vocab_size, embed_size), generator = g)
 model = Sequential([
@@ -413,6 +413,8 @@ model = Sequential([
     Linear(n_hidden, n_hidden, bias=False), BatchNorm1d(n_hidden), Tanh(),
     Linear(n_hidden, vocab_size, bias = False), BatchNorm1d(vocab_size),
 ])
+
+layers = model.layers
 
 # Perform proper initialization
 with torch.no_grad():
@@ -478,8 +480,6 @@ for i in range(max_steps):
     lossi.append(loss.log10().item())
     #with torch.no_grad():
     #    ud.append([(lr*p.grad.std() / p.data.std()).log10().item() for p in parameters])
-    if i >= 19999:
-        break # remove before final run
 ```
 
 The above neural network is much less sensitive to gain values. Therefore, if we change the gain, the activation and gradient statistics will remain well-behaved, but the update to data ratio will change and we may have to re-tune the learning rate. If we decrease the gain, some layers train faster. if we increase the gain, layers train slower. Think about why that is based on backpropagation through the batch-norm layer.
