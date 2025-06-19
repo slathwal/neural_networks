@@ -1,0 +1,106 @@
+---
+title: Implement a character prediction n-gram model directly using pytorch modules - version 5
+author: Shefali Lathwal
+date: 2025-06-19
+date-modified: last-modifed
+format: html
+toc: true
+echo: true
+jupyter: cs224n
+---
+
+# Introduction
+In this notebook, I will implement the custom model developed in version 4 using modules directly from pytorch. I will use an MLP-type network with several layers including BatchNorm.
+
+# Instal libraries
+```{python}
+import random
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+```
+
+# Get the data
+```{python}
+with open("data/names.txt") as file:
+    words = file.read().splitlines()
+random.shuffle(words)
+print("Total words in the data", len(words))
+```
+
+# Create the training vocabulary with a mapping from characters to indices and vice versa
+```{python}
+all_chars = sorted(list(set("".join(words)))+['*'])
+stoi = {s:i for i,s in enumerate(all_chars)}
+itos = {i:s for s,i in stoi.items()}
+```
+
+# Set some paramters
+```{python}
+vocab_size = len(all_chars)
+context_length = 3
+mini_batch_size = 32
+embed_size = 10 # Size of embedding vector
+n_hidden = 200
+```
+
+# Create training data for the model
+Build training, validation and test data using the appropriate context length
+```{python}
+def build_dataset(words):
+    xs, ys = [], []
+    for word in words:
+        #print(word)
+        context = ['*']*context_length
+        context_ind = [stoi[ch] for ch in context]
+        for ch in word:
+            xs.append([stoi[c] for c in context])
+            ys.append(stoi[ch])
+            #print(''.join(context), ch)
+            context = context[1:]+[ch]
+    xs = torch.tensor(xs)
+    ys = torch.tensor(ys)
+    return xs, ys     
+
+n1 = int(0.8*len(words))
+n2 = int(0.9*len(words))   
+#n1, n2
+xstr, ystr = build_dataset(words[:n1])
+xsval, ysval = build_dataset(words[n1:n2])
+xstest, ystest = build_dataset(words[n2:])
+#xstr.shape, ystr.shape
+print("Total training examples", ystr.nelement())
+```
+
+
+# Initialize the neural network
+```{python}
+# Implement the simplest MLP model
+model = nn.Sequential(
+    nn.Embedding(vocab_size, embed_size),
+    nn.Flatten(),
+    nn.Linear(context_length*embed_size, n_hidden, bias = False), nn.BatchNorm1d(n_hidden), nn.Tanh(),
+    nn.Linear(n_hidden, vocab_size, bias = False), nn.BatchNorm1d(vocab_size)
+)
+
+parameters = model.parameters()
+
+# Turn requires_grad = true for all parameters in the model
+for p in parameters:
+    p.requires_grad = True
+
+with torch.no_grad():
+    # make the last layer less confident
+    # for name, param in model[6].named_parameters():
+    #     print(name, param)
+    model[6].weight *= 0.1
+    for layer in model.modules():
+         if isinstance(layer, nn.Linear):
+            layer.weight *= 5/3
+```
+
+# Train the neural network
+
+# Evaluate the performance of the network
+
+# Make predictions

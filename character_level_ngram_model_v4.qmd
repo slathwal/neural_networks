@@ -13,6 +13,7 @@ In this notebook, we will implement the ideas from version 3 - using a MLP as de
 - We will pytorch-ify the code that we wrote in the previous notebook, which means we will write classes as available in pytorch and use them to build our neural network. We will then compare our code with the classes directly available from pytorch.
 - We will use ideas developed previously to normalize the statistics of all parameters in the neural network at initialization and during training so that our neural networks are well-behaved. Namely, we will use Kaiming initialization and BatchNorm.
 - We will visualize activation statistics using some graphs.
+- We will then implement a neural network with BatchNorm to predict characters.
 
 # Import dependencies
 ```{python}
