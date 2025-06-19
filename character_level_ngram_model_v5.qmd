@@ -12,12 +12,16 @@ jupyter: cs224n
 # Introduction
 In this notebook, I will implement the custom model developed in version 4 using modules directly from pytorch. I will use an MLP-type network with several layers including BatchNorm.
 
+Note: I made a very interesting error where in the training data, I did not end my words with the end character, which is a `*` in this notebook. Therefore, the model assigned very very small probability to ending the word and gave really long strings as a result. It's important to make sure that the training data is actually representative of what we need.
+Pay special attention to beginning and end of line characters.
+
 # Instal libraries
 ```{python}
 import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 ```
 
 # Get the data
@@ -38,10 +42,11 @@ itos = {i:s for s,i in stoi.items()}
 # Set some paramters
 ```{python}
 vocab_size = len(all_chars)
+print(vocab_size)
 context_length = 3
 mini_batch_size = 32
 embed_size = 10 # Size of embedding vector
-n_hidden = 200
+n_hidden = 100
 ```
 
 # Create training data for the model
@@ -51,6 +56,7 @@ def build_dataset(words):
     xs, ys = [], []
     for word in words:
         #print(word)
+        word = word+'*'
         context = ['*']*context_length
         context_ind = [stoi[ch] for ch in context]
         for ch in word:
@@ -70,23 +76,30 @@ xsval, ysval = build_dataset(words[n1:n2])
 xstest, ystest = build_dataset(words[n2:])
 #xstr.shape, ystr.shape
 print("Total training examples", ystr.nelement())
+print(f'Training data size: {ystr.nelement()}\nValidation data size: {ysval.nelement()}\nTest data size: {ystest.nelement()}')
 ```
 
 
 # Initialize the neural network
 ```{python}
+torch.manual_seed(42)
+
 # Implement the simplest MLP model
 model = nn.Sequential(
     nn.Embedding(vocab_size, embed_size),
     nn.Flatten(),
     nn.Linear(context_length*embed_size, n_hidden, bias = False), nn.BatchNorm1d(n_hidden), nn.Tanh(),
+    nn.Linear(n_hidden, n_hidden, bias = False), nn.BatchNorm1d(n_hidden), nn.Tanh(),
+    nn.Linear(n_hidden, n_hidden, bias = False), nn.BatchNorm1d(n_hidden), nn.Tanh(),
+    nn.Linear(n_hidden, n_hidden, bias = False), nn.BatchNorm1d(n_hidden), nn.Tanh(),
+    nn.Linear(n_hidden, n_hidden, bias = False), nn.BatchNorm1d(n_hidden), nn.Tanh(),
     nn.Linear(n_hidden, vocab_size, bias = False), nn.BatchNorm1d(vocab_size)
 )
 
 parameters = model.parameters()
 
 # Turn requires_grad = true for all parameters in the model
-for p in parameters:
+for p in model.parameters():
     p.requires_grad = True
 
 with torch.no_grad():
@@ -97,10 +110,107 @@ with torch.no_grad():
     for layer in model.modules():
          if isinstance(layer, nn.Linear):
             layer.weight *= 5/3
+
+print('Total number of parameters:', sum(p.nelement() for p in model.parameters())) # If I use parameters variable directly, this line of code does not work. Why??
+# for p in model.parameters():
+#     print(p.shape)
 ```
 
 # Train the neural network
+I can also use the optimizer object from `torch.optim`, but I am implementing the training loop as in v4.
+```{python}
+max_iter = 200000
+lossi = []
+
+for i in range(max_iter):
+    # Sample from the full training data to run the iteration on a minibatch
+    ix = torch.randint(0, xstr.shape[0], size = (mini_batch_size,))
+    #print(ix)
+    Xb, Yb = xstr[ix], ystr[ix]
+    #print(Xb.shape, Yb.shape)
+    # Forward pass
+    logits = model(Xb)
+
+    loss = F.cross_entropy(logits, Yb)
+    #print(loss)
+    # Backward pass
+    for p in model.parameters():
+        p.grad = None
+    loss.backward()
+
+    # update parameters
+    lr = 0.1
+    if i < 10000:
+        lr = lr
+    elif 10000 <= i < 50000:
+        lr = lr/10
+    else:
+        lr = lr/100 # step learning rate decay
+    for p in model.parameters():
+        p.data += -lr * p.grad
+
+    # collect statistics
+    lossi.append(loss.log10().item())
+    # track statistics
+    if i % 10000 == 0:
+        print(f'{i:7d}/{max_iter:7d}: {loss.item():.4f}')
+    # if i >= 9999:
+    #     break
+    #break
+print(loss.item())
+```
 
 # Evaluate the performance of the network
+```{python}
+plt.plot(torch.tensor([lossi]).view(-1, 1000).mean(dim = 1))
+plt.ylabel("mean(log10(loss)/1000 iterations)")
+plt.xlabel("iteration")
+```
+
+Put the model in evaluation model
+```{python}
+model.eval() # Make sure to put the model in evaluation mode
+
+eval_data_dict =  {
+        "train": (xstr, ystr),
+        "val": (xsval, ysval),
+        "test": (xstest, ystest)
+    }
+
+@torch.no_grad()
+def calculate_split_loss(split):
+    x,y = eval_data_dict[split]
+    logits = model(x)
+    loss = F.cross_entropy(logits, y)
+    print(split, loss.item())
+
+calculate_split_loss("train")
+calculate_split_loss("val")
+```
 
 # Make predictions
+
+```{python}
+
+start_chr = "*"
+for _ in range(20):
+    context = [stoi[start_chr]]*context_length
+    out = [start_chr]*context_length
+    #print(context)
+    while True:
+        x = torch.tensor([context])
+        #print(x.shape)
+        logits = model(x)
+        #print(logits.shape)
+        probs = F.softmax(logits, dim = 1)
+        ind = torch.multinomial(probs, num_samples = 1, replacement = True).item()
+        if (ind == stoi[start_chr]):
+            out.append(itos[ind])
+            break
+        else:
+            out.append(itos[ind])
+            context = context[1:]+[ind]
+            #print(context)
+    print(''.join(out))
+```
+ 

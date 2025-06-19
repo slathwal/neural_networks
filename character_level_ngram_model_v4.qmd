@@ -481,6 +481,8 @@ for i in range(max_steps):
     lossi.append(loss.log10().item())
     #with torch.no_grad():
     #    ud.append([(lr*p.grad.std() / p.data.std()).log10().item() for p in parameters])
+    # if i >= 19999:
+    #     break
 ```
 
 The above neural network is much less sensitive to gain values. Therefore, if we change the gain, the activation and gradient statistics will remain well-behaved, but the update to data ratio will change and we may have to re-tune the learning rate. If we decrease the gain, some layers train faster. if we increase the gain, layers train slower. Think about why that is based on backpropagation through the batch-norm layer.
