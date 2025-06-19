@@ -438,19 +438,39 @@ for i in range(max_steps):
     lossi.append(loss.log10().item())
     #with torch.no_grad():
     #    ud.append([(lr*p.grad.std() / p.data.std()).log10().item() for p in parameters])
-    
+    if i >= 19999:
+        break # remove before final run
 ```
 
 The above neural network is much less sensitive to gain values. Therefore, if we change the gain, the activation and gradient statistics will remain well-behaved, but the update to data ratio will change and we may have to re-tune the learning rate. If we decrease the gain, some layers train faster. if we increase the gain, layers train slower. Think about why that is based on backpropagation through the batch-norm layer.
 
 ```{python}
 plt.plot(lossi)
+plt.ylabel("log10(loss)")
+plt.xlabel("iteration")
+```
+
+Improve the loss visualization by taking mean of several loss values instead of visualizing every single value
+```{python}
+# In python, if we have a tensor, we can reshape it to multiple dimensions using the view function
+a = torch.arange(10)
+print(a.shape)
+print(a.view(-1, 5)) # reshapes it with 5 elements per row and infers the number of rows. During re-shaping, the first five elements go to first row, and next five to next row.
+
+# Lossi is right now a numpy list, so we first need to convert it to a tensor
+plt.plot(torch.tensor(lossi).view(-1, 1000).mean(1)) # each row contains 1000 consecutive elements, then take the mean of each row.
+
 ```
 
 # Evaluate the trained model
 
 - Calculate the loss for selected split of the data - train, dev, or test
 ```{python}
+# set the BatchNorm layers to be in evaluation mode.
+for layer in layers:
+    if isinstance(layer, BatchNorm1d):
+        layer.training = False
+
 @torch.no_grad() # this decorator disables gradient tracking
 # We can also use a context manager (look this up)
 def calculate_split_loss(split):
@@ -463,8 +483,6 @@ def calculate_split_loss(split):
     x = C[x].view(-1,context_length*embed_size)
     #xembcat = xemb
     for layer in layers:
-        if isinstance(layer, BatchNorm1d):
-            layer.training = False
         x = layer(x)
     loss = F.cross_entropy(x, y)
     print(split, loss.item())
