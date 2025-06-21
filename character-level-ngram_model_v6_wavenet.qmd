@@ -13,9 +13,11 @@ jupyter: cs224n
 
 In this notebook, we will start using more complex architecture for neural networks. So far we were using an MLP, which has a sequential structure with input, and a non-linearity. From now on, we will start learning about other architectures such as wavenet, Recurrent neural networks, Transformers, etc.
 
-In this notebook, we will focus on the wavenet architecture, presented in the [paper by van den Oord et al.](https://arxiv.org/pdf/1609.03499)
+In this notebook, we will focus on:
 
-Wavenet was a paper published for audio data.
+- Implementing the wavenet architecture, presented in the [paper by van den Oord et al.](https://arxiv.org/pdf/1609.03499). Wavenet was a paper published for audio data.
+
+- Combining custom modules with in-built pytorch modules.
 
 
 # Import libraries
@@ -89,12 +91,12 @@ for x,y in zip(Xtr[:20], Ytr[:20]):
 # Set some parameters
 ```{python}
 n_embed = 10
-n_hidden = 200
+n_hidden = 100
 mini_batch_size = 32
 # context length and vocab size have been set earlier
 ```
 
-# Initialize the model
+# Initialization of the MLP neural net
 I am going to use pytorch classes to build the model instead of own modules written in v4 of the file. Idea is to fuse bigrams sequentially as the network gets layer.
 ```{python}
 torch.manual_seed(42) # for reproducibility
@@ -109,11 +111,260 @@ for p in model.parameters():
     p.requires_grad = True
 
 print("total number of parameters:", sum(p.nelement() for p in model.parameters()))
+```
 
+# scratch code to understand how to build the wavenet architecture
+```{python}
+torch.manual_seed(42) # for reproducibility
+ix = torch.randint(0, Xtr.shape[0], (4,)) # look at a batch of 4 training examples
+Xb, Yb = Xtr[ix], Ytr[ix]
+logits = model(Xb)
+print(Xb.shape) # we have 4 example with 8 characters in context_length
+Xb, Yb
+```
+
+Look at the output of embedding layer
+```{python}
+emb = model[0](Xb) # output of embedding layer
+emb.shape # 4 examples, 8 characters, embedding size of 10
+```
+
+Look at the output of flatten layer
+```{python}
+xflat = model[1](emb) 
+xflat.shape
+```
+
+Look at the output of Linear layer
+```{python}
+x = model[2](xflat)
+x.shape
+```
+
+Play with the linear layer
+
+- The matrix multiplication only works on the last dimension and all previous dimensions are treated as batch dimensions and left untouched.
+```{python}
+# We can multiply 2-D tensor with the weigth matrix
+print((torch.randn((4, 80)) @ torch.randn((80, 200)) + torch.randn(200)).shape)
+
+# We can also multiply 3-D tensor or more with the weight matrix
+print((torch.randn((4,5,80)) @ torch.randn((80, 200)) + torch.randn(200)).shape)
+
+# We can also multiply 3-D tensor or more with the weight matrix
+print((torch.randn((4,5,2,80)) @ torch.randn((80, 200)) + torch.randn(200)).shape)
+```
+
+For wavenet, we do not want to flatten all 8 characters at once. Instead we want to group the characters 2 at a time. So we want to create a new "batch" of 4 in the first layer and process them all together. So we want to create a matrix of 32X4X20 and multiply that with a linear layer of dimension 20X200. Therefore, we need to change the flatten layer so it now outputs a tensor of size mini_batch_sizeX 4X 20
+
+```{python}
+print((torch.rand((4, 4, 20)) @ torch.randn((20, 200)) + torch.randn(200)).shape)
+
+# input of flatten layer is of dimension 4 X 8 X 10
+e = torch.arange(320).view(4,8,10)
+e
+even_chs = e[:, ::2, :] # get all the even numbers from the second dimension
+odd_chs = e[:, 1::2, :] # get all the odd numbers
+out = torch.cat((even_chs, odd_chs), dim = 2)
+print(out.shape)
+
+# Another way to do the above
+(e.view(4,4,20) == out).all()
+```
+
+Ok, so to do the above, we can define our own class `FlattenConsecutive` as follows:
+```{python}
+class FlattenConsecutive(nn.Module):
+
+    def __init__(self, n):
+        super().__init__()
+        self.n = n # n = number of characters to flatten
+    
+    def forward(self, x):
+        B, T, C = x.shape
+        #x = x.view(B,T//self.n ,self.n*C) # if I use a permute, .view raises error, so using .reshape
+        x = x.reshape(B,T//self.n ,self.n*C)
+        if (x.shape[1] == 1): # check shape after flattening
+            x = torch.squeeze(x, dim = 1)
+        # # permute the dimensions so that we can send the correct dimension input to BatchNorm1D module from torch.nn
+        # if len(x.shape) == 3:
+        #     x = x.permute(0, 2, 1)
+        self.out = x
+        return self.out
+    
+
+# Define a custom Permute Module to fix input to BatchNorm1d layer
+class Permute(nn.Module):
+    def __init__(self, *dims):
+        super().__init__()
+        self.dims = dims
+
+    def forward(self, x): # I can define either a __call__ function or a forward function
+        if len(self.dims) == 3:
+            x = torch.permute(x, self.dims)
+        else:
+            pass
+        self.out = x
+        return self.out
+
+# x = torch.randn((4,4,20))
+# permute = Permute(0,2,1)
+# xp = permute(x)
+# xpp = permute(xp)
+# (xpp == x).all()
+```
+
+
+# Initialize the neural network with the wavenet architecture
+```{python}
+torch.manual_seed(42) # for reproducibility
+
+
+n_embed = 24
+n_hidden = 128
+n_merge = 2 # number of characters to merge
+
+model = nn.Sequential(
+    nn.Embedding(vocab_size, n_embed), FlattenConsecutive(n = n_merge),
+    nn.Linear(n_merge*n_embed, n_hidden, bias = False), Permute(0,2,1), nn.BatchNorm1d(n_hidden), Permute(0,2,1), nn.Tanh(),
+    FlattenConsecutive(n = n_merge), nn.Linear(n_merge*n_hidden, n_hidden, bias = False), Permute(0,2,1), nn.BatchNorm1d(n_hidden), Permute(0,2,1), nn.Tanh(),
+    FlattenConsecutive(n= n_merge), nn.Linear(n_merge*n_hidden, n_hidden, bias = False), nn.BatchNorm1d(n_hidden), nn.Tanh(),
+    nn.Linear(n_hidden, vocab_size, bias = False), nn.BatchNorm1d(vocab_size)
+)
+
+# make last layer less confident
+with torch.no_grad():
+    model[-1].weight *= 0.1
+
+
+for p in model.parameters():
+    p.requires_grad = True
+
+print("total number of parameters:", sum(p.nelement() for p in model.parameters()))
+
+
+# #test the initialization
+# x = Xb
+# for module in model:  
+#     x = module(x)
+#     print(f'{module.__class__.__name__}: {x.shape}')
+#     if isinstance(module, nn.BatchNorm1d):
+#         print(module.running_mean.shape)
 ```
 
 # Train the model
 
+```{python}
+max_iter = 200000
+lossi = []
+
+for i in range(max_iter):
+
+    # construct minibatch
+    ix = torch.randint(0, Xtr.shape[0], size = (mini_batch_size,))
+    #print(ix)
+    Xb, Yb = Xtr[ix], Ytr[ix]
+
+    # forward pass
+    logits = model(Xb)
+    loss = F.cross_entropy(logits, Yb)
+
+    # Backward pass
+    for p in model.parameters():
+        p.grad = None
+    loss.backward()
+
+  # update parameters
+    lr = 0.1
+    if i < 10000:
+        lr = lr
+    elif 10000 <= i < 50000:
+        lr = lr/10
+    else:
+        lr = lr/100 # step learning rate decay
+    for p in model.parameters():
+        p.data += -lr * p.grad
+
+    # collect statistics
+    lossi.append(loss.log10().item())
+    # track statistics
+    if i % 10000 == 0:
+        print(f'{i:7d}/{max_iter:7d}: {loss.item():.4f}')
+    # if i >= 9999:
+    #     break
+    #break
+
+print(loss.item())  
+
+```
+
 # Evaluate the model
+```{python}
+plt.plot(torch.tensor([lossi]).view(-1, 1000).mean(dim = 1))
+plt.ylabel("mean(log10(loss)/1000 iterations)")
+plt.xlabel("iteration")
+```
+
+Put the model in evaluation mode.
+```{python}
+model.eval() # Make sure to put the model in evaluation mode
+
+eval_data_dict =  {
+        "train": (Xtr, Ytr),
+        "val": (Xdev, Ydev),
+        "test": (Xtest, Ytest)
+    }
+
+@torch.no_grad()
+def calculate_split_loss(split):
+    x,y = eval_data_dict[split]
+    logits = model(x)
+    loss = F.cross_entropy(logits, y)
+    print(split, loss.item())
+
+calculate_split_loss("train")
+calculate_split_loss("val")
+```
+
+# Record the performance
+For wavenet architecture with n_embed = 10, n_hidden = 46, mini_batch_size = 32, n_merge = 2, context_length = 8, we get the following performance:
+
+- Training loss = 1.877, Validation loss = 1.899
+
+For wavenet architecture with n_embed = 24, n_hidden = 128, mini_batch_size = 32, n_merge = 2, context_length = 8, we get the following performance:
+
+- Training loss = 1.781 , Validation loss = 1.826
+
 
 # Sample from the model
+
+```{python}
+start_chr = "*"
+for _ in range(20):
+    context = [stoi[start_chr]]*context_length
+    #out = [start_chr]*context_length
+    out = []
+    #print(context)
+    while True:
+        x = torch.tensor([context])
+        #print(x.shape)
+        logits = model(x)
+        #print(logits.shape)
+        probs = F.softmax(logits, dim = 1)
+        ind = torch.multinomial(probs, num_samples = 1, replacement = True).item()
+        if (ind == stoi[start_chr]):
+            out.append(itos[ind])
+            break
+        else:
+            out.append(itos[ind])
+            context = context[1:]+[ind]
+            #print(context)
+    print(''.join(out))
+```
+
+# Some notes:
+Ideally, when we are training neural networks:
+
+- We should be tuning hyperparameters in a systemic way
+- We shouldn't just look at the training loss, but at both the training and the validation loss.
+- We did not implement residual connections, skip connections and the more complicated linear layer architecture from the wavenet paper. We implemented only one part of it, which was combining characters slowly instead of all-at-once as we were doing in MLP.
