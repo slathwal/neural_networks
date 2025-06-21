@@ -1,0 +1,119 @@
+---
+title: Building character-level ngram model suign wavenet architecture
+author: Shefali Lathwal
+date: 2025-06-21
+date-modified: last-modified
+format: html
+toc: true
+echo: true
+jupyter: cs224n
+---
+
+# Introduction
+
+In this notebook, we will start using more complex architecture for neural networks. So far we were using an MLP, which has a sequential structure with input, and a non-linearity. From now on, we will start learning about other architectures such as wavenet, Recurrent neural networks, Transformers, etc.
+
+In this notebook, we will focus on the wavenet architecture, presented in the [paper by van den Oord et al.](https://arxiv.org/pdf/1609.03499)
+
+Wavenet was a paper published for audio data.
+
+
+# Import libraries
+```{python}
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+import random
+```
+
+# Get the data and create data to index mapping dictionaries
+```{python}
+with open("data/names.txt") as file:
+    words = file.read().splitlines()
+file.close()
+
+print(len(words))
+print(max(len(w) for w in words))
+print(min(len(w) for w in words))
+print(words[:10])
+
+# Build the vocabulary index
+all_chs = sorted(list(set(''.join(words)))+['*'])
+stoi = {s:i for i,s in enumerate(all_chs)}
+itos = {i:s for s,i in stoi.items()}
+vocab_size = len(all_chs)
+
+print(itos)
+print(vocab_size)
+```
+
+# Shuffle the words
+```{python}
+random.seed(42)
+random.shuffle(words)
+```
+
+# Build the dataset for the neural network
+```{python}
+context_length = 8 # three caracters in context
+
+def build_dataset(words):
+    X, Y = [], []
+    for word in words:
+        word = word+'*' # Add the end character
+        context = [stoi['*']]*context_length
+        for ch in word:
+            ix = stoi[ch]
+            X.append(context)
+            Y.append(ix)
+            context = context[1:] + [ix]
+
+    X = torch.tensor(X)
+    Y = torch.tensor(Y)
+    print(X.shape, Y.shape)
+    return X, Y
+
+n1 = int(0.8*len(words))
+n2 = int(0.9*len(words))
+Xtr, Ytr = build_dataset(words[:n1])
+Xdev, Ydev = build_dataset(words[n1:n2])
+Xtest, Ytest = build_dataset(words[n2:])
+```
+
+```{python}
+for x,y in zip(Xtr[:20], Ytr[:20]):
+    print(''.join(itos[ix.item()] for ix in x), '---->', itos[y.item()])
+```
+
+# Set some parameters
+```{python}
+n_embed = 10
+n_hidden = 200
+mini_batch_size = 32
+# context length and vocab size have been set earlier
+```
+
+# Initialize the model
+I am going to use pytorch classes to build the model instead of own modules written in v4 of the file. Idea is to fuse bigrams sequentially as the network gets layer.
+```{python}
+torch.manual_seed(42) # for reproducibility
+
+model = nn.Sequential(
+    nn.Embedding(vocab_size, n_embed), nn.Flatten(),
+    nn.Linear(context_length*n_embed, n_hidden, bias = False), nn.BatchNorm1d(n_hidden), nn.Tanh(),
+    nn.Linear(n_hidden, vocab_size, bias = False), nn.BatchNorm1d(vocab_size)
+)
+
+for p in model.parameters():
+    p.requires_grad = True
+
+print("total number of parameters:", sum(p.nelement() for p in model.parameters()))
+
+```
+
+# Train the model
+
+# Evaluate the model
+
+# Sample from the model
