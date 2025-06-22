@@ -11,7 +11,7 @@ jupyter: cs224n
 
 # Introduction
 
-In this notebook, we will start using more complex architecture for neural networks. So far we were using an MLP, which has a sequential structure with input, and a non-linearity. From now on, we will start learning about other architectures such as wavenet, Recurrent neural networks, Transformers, etc.
+In this notebook, we will start using more complex architecture for neural networks. So far we were using an MLP, which has a sequential structure with input, and a non-linearity. From now on, we will start learning about other architectures such as wavenet, Recurrent neural networks, LSTMs, GRUs, Transformers, etc.
 
 In this notebook, we will focus on:
 
@@ -366,5 +366,13 @@ for _ in range(20):
 Ideally, when we are training neural networks:
 
 - We should be tuning hyperparameters in a systemic way
+
 - We shouldn't just look at the training loss, but at both the training and the validation loss.
+
 - We did not implement residual connections, skip connections and the more complicated linear layer architecture from the wavenet paper. We implemented only one part of it, which was combining characters slowly instead of all-at-once as we were doing in MLP.
+
+- Pytorch documentation is not great and can sometimes be incorrect. Do the best you can.
+
+- There is a lot of looking at shapes and making sure they work. It's a good idea to prototype layers and implementations in a notebook to make sure that functionality is working correctly.
+
+- Typical deep-learning workflows are different - we have to setup experimental harness to tune our networks. Look at `Hands-on Machine Learning with Scikit-learn and Pytorch`.
