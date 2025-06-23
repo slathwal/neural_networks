@@ -2,7 +2,7 @@
 title: Implement a character prediction n-gram model directly using pytorch modules - version 5
 author: Shefali Lathwal
 date: 2025-06-19
-date-modified: last-modifed
+date-modified: last-modified
 format: html
 toc: true
 echo: true
@@ -124,7 +124,7 @@ I can also use the optimizer object from `torch.optim`, but I am implementing th
 
 
 ```{python}
-max_iter = 200000
+max_iter = 10
 lossi = []
 
 for i in range(max_iter):
@@ -159,15 +159,15 @@ for i in range(max_iter):
     # track statistics
     if i % 10000 == 0:
         print(f'{i:7d}/{max_iter:7d}: {loss.item():.4f}')
-    if i >= 9:
-        break
+    # if i >= 9:
+    #     break
     #break
 #print(loss.item())
 ```
 
 ```{python}
-plt.plot(torch.tensor([lossi]).view(-1, 1000).mean(dim = 1))
-plt.ylabel("mean(log10(loss)/1000 iterations)")
+plt.plot(lossi)
+plt.ylabel("loss")
 plt.xlabel("iteration")
 ```
 
@@ -261,7 +261,7 @@ plt.xlabel("iteration")
 ```
 
 
-Put the model in evaluation model
+Put the model in evaluation mode.
 ```{python}
 model.eval() # Make sure to put the model in evaluation mode
 
