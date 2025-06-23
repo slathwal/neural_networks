@@ -8,6 +8,7 @@ Haoshen Hong <haoshen@stanford.edu>
 """
 
 import sys
+import copy
 
 class PartialParse(object):
     def __init__(self, sentence):
@@ -21,7 +22,7 @@ class PartialParse(object):
 
         ### YOUR CODE HERE (3 Lines)
         self.stack = ["ROOT"]
-        self.buffer = self.sentence.copy()
+        self.buffer = copy.deepcopy(self.sentence)
         self.dependencies = []
         ### Your code should initialize the following fields:
         ###     self.stack: The current stack represented as a list with the top of the stack as the
