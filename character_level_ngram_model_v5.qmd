@@ -15,14 +15,15 @@ In this notebook, I will implement the custom model developed in version 4 using
 Note: I made a very interesting error where in the training data, I did not end my words with the end character, which is a `*` in this notebook. Therefore, the model assigned very very small probability to ending the word and gave really long strings as a result. It's important to make sure that the training data is actually representative of what we need.
 Pay special attention to beginning and end of line characters.
 
-TO DO: Also use modules for optimizer and mini-batch gradient descent from Pytorch.
-
 # Instal libraries
 ```{python}
 import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import LambdaLR
 import matplotlib.pyplot as plt
 ```
 
@@ -119,7 +120,9 @@ print('Total number of parameters:', sum(p.nelement() for p in model.parameters(
 ```
 
 # Train the neural network
-I can also use the optimizer object from `torch.optim`, but I am implementing the training loop as in v4.
+I can also use the optimizer object from `torch.optim`, but I am implementing the training loop as in v4 first.
+
+
 ```{python}
 max_iter = 200000
 lossi = []
@@ -134,7 +137,7 @@ for i in range(max_iter):
     logits = model(Xb)
 
     loss = F.cross_entropy(logits, Yb)
-    #print(loss)
+    print(loss)
     # Backward pass
     for p in model.parameters():
         p.grad = None
@@ -156,10 +159,98 @@ for i in range(max_iter):
     # track statistics
     if i % 10000 == 0:
         print(f'{i:7d}/{max_iter:7d}: {loss.item():.4f}')
-    # if i >= 9999:
-    #     break
+    if i >= 9:
+        break
     #break
-print(loss.item())
+#print(loss.item())
+```
+
+```{python}
+plt.plot(torch.tensor([lossi]).view(-1, 1000).mean(dim = 1))
+plt.ylabel("mean(log10(loss)/1000 iterations)")
+plt.xlabel("iteration")
+```
+
+
+For implementing batch gradient descent, we can manually sample the indices as above and pass the sampled indices from the training data to the model or we can use the `DataLoader` class from pytorch.
+
+There is also a `collate_fn` argument in data loader that can be used to do additional dataset pre-processing, but we do not need that in this workflow. For details of how to use the `collate_fn` within `DataLoader`, see the [Pytorch tutorial notebook](cs224n-stanford_natural_langugage_processing/tutorials/SP_24_CS224N_PyTorch_Tutorial.ipynb). 
+
+
+In this workflow, since we do not want to iterate over the whole dataset batch-wise, there is no need to use `DataLoader`.
+
+```{python}
+data = list(zip(xstr[:100], ystr[:100]))
+
+loader = DataLoader(dataset = data, batch_size = mini_batch_size, shuffle = True) # loads up all the batches until we iterate over all of them. For us, we need to access only the first batch since we are not iterating over all the batches
+counter = 0
+for Xb, Yb in loader:
+    print(counter)
+    print(Yb)
+    counter +=1
+```
+
+Implement the training using the `torch.optim` method in pytorch.
+
+- We can also use a learning rate scheduler from some pre-defined functions given in class `torch.optim.lr_scheduler`. 
+
+```{python}
+def learning_rate_schedule(epoch):
+    if epoch < 10000:
+        return 1
+    elif  epoch < 50000 :
+        return 0.1
+    else:
+        return 0.01
+```
+
+```{python}
+# Define the optimiser
+learning_rate = 0.1
+sgd_optimiser = optim.SGD(model.parameters(), lr = learning_rate)
+
+lr_scheduler = LambdaLR(sgd_optimiser, lr_lambda=learning_rate_schedule)
+
+# Define the loss function
+loss_function = nn.CrossEntropyLoss()
+
+# Set the training loop
+n_epoch = 200000 # number of training iterations, equivalent to max_iter in the above loop
+lossi = []
+print("Initial learning rate: ", sgd_optimiser.param_groups[0]['lr'])
+
+for epoch in range(n_epoch):
+
+    # Set the gradients to zero
+    sgd_optimiser.zero_grad()
+    
+    # Get the mini-batch data
+    ix = torch.randint(0, xstr.shape[0], size = (mini_batch_size,))
+    Xb, Yb = xstr[ix], ystr[ix]
+
+    # Get the model predictions
+    logits = model(Xb)
+
+    # Get the loss
+    loss = loss_function(logits, Yb)
+
+    # Print the stats
+    #print(f'Epoch {epoch}: training loss: {loss:.4f}')
+    if epoch % 10000 == 0:
+        print(f'{epoch:7d}/{n_epoch:7d}: {loss.item():.4f}: lr={sgd_optimiser.param_groups[0]["lr"]:.5f}')
+
+    # collect statistics
+    lossi.append(loss.log10().item())
+
+    # compute the gradients
+    loss.backward()
+
+    # take a step to optimize the parameters
+    sgd_optimiser.step()
+
+    # Take a step for the lr
+    lr_scheduler.step()
+
 ```
 
 # Evaluate the performance of the network
@@ -168,6 +259,7 @@ plt.plot(torch.tensor([lossi]).view(-1, 1000).mean(dim = 1))
 plt.ylabel("mean(log10(loss)/1000 iterations)")
 plt.xlabel("iteration")
 ```
+
 
 Put the model in evaluation model
 ```{python}
