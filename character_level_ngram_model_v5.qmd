@@ -15,6 +15,8 @@ In this notebook, I will implement the custom model developed in version 4 using
 Note: I made a very interesting error where in the training data, I did not end my words with the end character, which is a `*` in this notebook. Therefore, the model assigned very very small probability to ending the word and gave really long strings as a result. It's important to make sure that the training data is actually representative of what we need.
 Pay special attention to beginning and end of line characters.
 
+TO DO: Also use modules for optimizer and mini-batch gradient descent from Pytorch.
+
 # Instal libraries
 ```{python}
 import random
