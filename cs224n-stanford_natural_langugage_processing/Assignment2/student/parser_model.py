@@ -72,14 +72,14 @@ class ParserModel(nn.Module):
         ###     Dropout: https://pytorch.org/docs/stable/nn.html#dropout-layers
         ### 
         ### See the PDF for hints.
-        self.embed_to_hidden_weight = nn.Parameter(nn.init.xavier_uniform_(torch.empty(self.n_features*self.embed_size, self.hidden_size).T))
+        self.embed_to_hidden_weight = nn.Parameter(nn.init.xavier_uniform_(torch.empty(self.hidden_size, self.n_features*self.embed_size).T))
         self.embed_to_hidden_bias = nn.Parameter(nn.init.uniform_(torch.empty(self.hidden_size)))
-
+        #print(self.embed_to_hidden_weight.shape)
         self.dropout = nn.Dropout(self.dropout_prob)
 
-        self.hidden_to_logits_weight = nn.Parameter(nn.init.xavier_uniform_(torch.empty(self.hidden_size, self.n_classes).T))
+        self.hidden_to_logits_weight = nn.Parameter(nn.init.xavier_uniform_(torch.empty(self.n_classes,self.hidden_size).T))
         self.hidden_to_logits_bias = nn.Parameter(nn.init.uniform_(torch.empty(self.n_classes)))
-
+        #print(self.hidden_to_logits_weight.shape)
 
         ### END YOUR CODE
 
@@ -116,7 +116,7 @@ class ParserModel(nn.Module):
         x = self.embeddings[w]
         x = x.view(w.shape[0], self.n_features*self.embed_size)
         #print(x.shape)
-        
+
         ### END YOUR CODE
         return x
 
@@ -151,7 +151,12 @@ class ParserModel(nn.Module):
         ### Please see the following docs for support:
         ###     Matrix product: https://pytorch.org/docs/stable/torch.html#torch.matmul
         ###     ReLU: https://pytorch.org/docs/stable/nn.html?highlight=relu#torch.nn.functional.relu
-
+        emb = self.embedding_lookup(w)
+        linear1 = torch.matmul(emb, self.embed_to_hidden_weight) + self.embed_to_hidden_bias
+        h = linear1.relu()
+        drop_h = self.dropout(h)
+        logits = drop_h @ self.hidden_to_logits_weight + self.hidden_to_logits_bias
+        print(emb.shape, linear1.shape, h.shape, drop_h.shape, logits.shape)
 
         ### END YOUR CODE
         return logits
