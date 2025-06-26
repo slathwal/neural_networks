@@ -240,11 +240,12 @@ class Parser(object):
         sentences = []
         sentence_id_to_idx = {}
         for i, example in enumerate(dataset):
+            #print(example)
             n_words = len(example['word']) - 1
             sentence = [j + 1 for j in range(n_words)]
             sentences.append(sentence)
             sentence_id_to_idx[id(sentence)] = i
-
+        print(len(sentences))
         model = ModelWrapper(self, dataset, sentence_id_to_idx)
         dependencies = minibatch_parse(sentences, model, eval_batch_size)
 

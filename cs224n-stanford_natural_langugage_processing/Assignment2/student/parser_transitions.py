@@ -62,8 +62,8 @@ class PartialParse(object):
             second_word = self.stack.pop(-2)
             self.dependencies.append((first_word, second_word))
         if transition == "RA":
+            second_word = self.stack[-2]
             first_word = self.stack.pop(-1)
-            second_word = self.stack[-1]
             self.dependencies.append((second_word, first_word))
 
         ### END YOUR CODE
@@ -116,30 +116,38 @@ def minibatch_parse(sentences, model, batch_size):
     ###             to remove objects from the `unfinished_parses` list. This will free the underlying memory that
     ###             is being accessed by `partial_parses` and may cause your code to crash.
     # Initialize partial_parses as a lit of PartialParse objects for each sentence in sentences
+    
     partial_parses = [PartialParse(sentence) for sentence in sentences]
     #print(partial_parses)
 
     # Initialize unfinished_parses as a shallow copy of partial parses
     unfinished_parses = partial_parses[:]
-    
+    org_length = len(unfinished_parses)
+    counter = 0
     while unfinished_parses:
         # Take the first batch_size parses in unfinished_parses as a minibatch
         minibatch = unfinished_parses[:batch_size]
+        #print(minibatch)
         # Use the model to predict the next transition for each partial parse in the minibatch
         transitions = model.predict(minibatch)
         #print(transitions)
         # perform a parse step on each partial parse in the minibatch with its predicted transition
-        
-            #print(index)
-        for index in range(len(transitions)):
-            minibatch[index].parse_step(transitions[index])
+                
+        for index in range(len(transitions)):            
             #print(minibatch[index].buffer, minibatch[index].stack)
+            minibatch[index].parse_step(transitions[index])
+
         
         #Remove the completed (empty buffer and stack of size 1) parses from unfinished parses
-        for parse in unfinished_parses:
-            if (not parse.buffer and len(parse.stack) == 1):
-                unfinished_parses.remove(parse)
-    
+        # Retain items rather than remove items
+        unfinished_parses = [parse for parse in unfinished_parses if (parse.buffer and len(parse.stack) > 1)]
+        #for parse in unfinished_parses:
+            # if (not parse.buffer and len(parse.stack) == 1):
+            #     print("Inside removal loop - finished a parse")
+            #     unfinished_parses.remove(parse)
+            #     counter +=1
+            #     print(counter, parse_count)
+
     dependencies = [object.dependencies for object in partial_parses]
     ### END YOUR CODE
 
