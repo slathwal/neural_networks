@@ -156,7 +156,7 @@ class ParserModel(nn.Module):
         h = linear1.relu()
         drop_h = self.dropout(h)
         logits = drop_h @ self.hidden_to_logits_weight + self.hidden_to_logits_bias
-        print(emb.shape, linear1.shape, h.shape, drop_h.shape, logits.shape)
+        #print(emb.shape, linear1.shape, h.shape, drop_h.shape, logits.shape)
 
         ### END YOUR CODE
         return logits
